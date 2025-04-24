@@ -1,8 +1,8 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/nqsiO_r4)
 
-# Team Spartan
+# Team Code-Avengers
 
-Eric Pham, Haroon Razzack, Faisal Budhwani, Siddharth Kulkarni
+Piyush Deshmukh, Shashank, Sriram, Sindhu
 
 # Deployment Diagram
 
@@ -32,10 +32,10 @@ https://docs.google.com/spreadsheets/d/11EeBDC_WkecvDV-sRhcM1kVixwlp5c1NTBKi8iqD
 
 # Contributions Summary:
 
-Haroon Razzack: Worked on the Backend APIs, django models, diagrams, and testing.
+Piyush Deshmukh: Worked on the Backend APIs, django models, diagrams, and testing.
 
-Eric Pham: Worked on the Backend APIs, PostgreSQL database with AWS RDS, EC2 setup
+Sriram: Worked on the Backend APIs, PostgreSQL database with AWS RDS, EC2 setup
 
-Faisal: Worked on Front-End Implementation, CSS and Javascript Implementation and Validation
+Shashank: Worked on Front-End Implementation, CSS and Javascript Implementation and Validation
 
-Siddharth: Worked on the backend APIs, photo uploads, s3 integration and AWS deployment.
+Sindhu: Worked on the backend APIs, photo uploads, s3 integration and AWS deployment.
