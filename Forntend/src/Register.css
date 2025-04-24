@@ -1,0 +1,24 @@
+.register-container {
+    height: 100vh;
+    background-color: #ffffff;
+}
+
+.register-card {
+    max-width: 500px;
+    width: 100%;
+    border-radius: 8px;
+}
+
+.toggle-btn {
+    width: 100%;
+    font-weight: 500;
+}
+
+input, button {
+    border-radius: 5px !important;
+}
+
+h2 {
+    font-weight: 600;
+    color: #333;
+}

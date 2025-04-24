@@ -2,7 +2,7 @@
 
 # Team Code-Avengers
 
-Piyush Deshmukh, Shashank, Sriram, Sindhu
+Piyush Deshmukh, Shivansh, Sriram, Sindhu
 
 
 # Agile Artifacts
