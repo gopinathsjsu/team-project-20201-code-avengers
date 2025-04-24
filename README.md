@@ -9,11 +9,11 @@ Piyush Deshmukh, Shivansh, Sriram, Sindhu
 
 ## XP Core Values
 
-**Feedback:**
-Our team held regular meetings to review all the code we created. Throughout the project, each of us gave and received constructive feedback on the features implemented and how we could improve them further. Feedback was incorporated to improve our code quality and project outcomes. Feedback from testing played a crucial role when debugging errors in the RestaurantSearchView. After implementing the filters, test results were analyzed using tools like Postman and log statements. We iteratively adjusted the filters based on feedback from tests, refining the logic for the core search features. This constant feedback loop helped identify and resolve edge cases efficiently. Additionally we made use of pair programming to resolve issues together and speed up developement.
+**Communication:**
+Open and effective communication was the backbone of our project. We maintained clear channels through daily stand-ups, GitHub issues, and a shared task board, ensuring everyone was aligned. Frequent check-ins helped us avoid silos and kept all team members aware of project progress and blockers. Clear documentation and prompt updates on Slack ensured smooth handoffs between frontend, backend, and cloud teams. By fostering transparent communication, we were able to catch bugs early, prioritize tasks efficiently, and maintain strong team synergy from start to finish.
 
-**Respect:**
-Our team was able to follow this core value as we all contributed to creating a collaborative and welcoming environment. All of our team members have different backgrounds and experiences so we were able to support each other by sharing ideas and knowledge. For example Sriram was specialized in the frontend, Piyush and Shashank in the backend and Sindhu in cloud and deployment. We drew on each others knowledge to complete the project while respecting each others boundaries. Everything produced in the project was through collaboration as we collectively decided on features and priorities.
+**Courage:**
+Our team demonstrated courage by embracing challenges head-on and adapting to change throughout the development process. Whether it was refactoring large sections of code, overhauling our search filter logic, or taking on unfamiliar tech stacks for deployment, we made bold decisions to improve the product. For example, midway through development, we identified flaws in the existing database schema. Rather than building on top of a weak foundation, we had the courage to redesign it—even though it meant reworking some of the APIs. This decision ultimately resulted in a more robust and scalable architecture. Team members were encouraged to voice concerns and suggest improvements, even if it meant rethinking initial ideas.
 
 
 # Contributions Summary:
