@@ -1,0 +1,13 @@
+services:
+  photos-minio:
+    image: quay.io/minio/minio
+    container_name : photos-minio
+    ports: 
+      - "9003:9003"
+      - "9004:9000"
+    environment:
+      - MINIO_ROOT_USER=root
+      - MINIO_ROOT_PASSWORD=qwertyuiop
+    volumes:
+      - .miniodata:/data
+    command: server /data --console-address ":9003"

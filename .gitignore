@@ -1,2 +1,148 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+wheels/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff (if applicable):
+instance/
+.webassets-cache
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv (if applicable):
+#Pipfile.lock
+
+# poetry (recommended to include `poetry.lock` in version control)
+.pdm.toml
+.pdm-python
+.pdm-build/
+
+# PEP 582
+__pypackages__/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Environments
 .env
-node_modules
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Virtual environments
+venv/
+venv202/
+
+# Django log files
+*.log
+
+# Static files (build artifacts)
+staticfiles/
+static/
+
+# Media files (user uploads)
+media/
+
+# SQL dumps
+*.sql
+
+# Ignore macOS-specific files
+.DS_Store
+
+# Ignore editor directories and files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# AWS specific files (credentials, keys)
+.aws/
+*.pem
+
+# Jenkins specific files
+*.jenkins
+*.miniodata
+*.tmp
