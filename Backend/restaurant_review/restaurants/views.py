@@ -1,3 +1,8 @@
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .models import Restaurant, OperatingHours
+from .serializers import RestaurantSerializer, OperatingHoursSerializer
 from django.shortcuts import render, get_object_or_404
 from django.utils.timezone import now
 from datetime import timedelta
@@ -26,6 +31,8 @@ class RestaurantSearchView(APIView):
         price_range = request.query_params.get('price_range', '').strip()
         min_rating = request.query_params.get('min_rating', '')
         max_rating = request.query_params.get('max_rating', '')
+        booking_date = request.query_params.get('booking_date', '')
+        booking_time = request.query_params.get('booking_time', '')
 
         # Fetch restaurants from database
         queryset = Restaurant.objects.filter()
@@ -54,6 +61,38 @@ class RestaurantSearchView(APIView):
                 queryset = queryset.filter(rating__gte=min_rating_value, rating__lte=max_rating_value)
             except ValueError:
                 return Response({"error": "Invalid rating range"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Filter by booking date and time
+        if booking_date and booking_time:
+            try:
+                from datetime import datetime
+                booking_datetime = datetime.strptime(booking_date, '%Y-%m-%d')
+                day_of_week = booking_datetime.weekday()  # 0 = Monday, 6 = Sunday
+                
+                booking_time_obj = datetime.strptime(booking_time, '%H:%M').time()
+                
+                # Get restaurant IDs that are open at the requested day and time
+                open_restaurant_ids = []
+                for restaurant in queryset:
+                    try:
+                        hours = OperatingHours.objects.get(
+                            restaurant_id=restaurant.id, 
+                            day_of_week=day_of_week,
+                            is_closed=False
+                        )
+                        
+                        if hours.opening_time <= booking_time_obj <= hours.closing_time:
+                            open_restaurant_ids.append(restaurant.id)
+                    except OperatingHours.DoesNotExist:
+                        # If no hours found, keep the restaurant in results
+                        # (assuming it's using the old hours_of_operation field)
+                        open_restaurant_ids.append(restaurant.id)
+                
+                if open_restaurant_ids:
+                    queryset = queryset.filter(id__in=open_restaurant_ids)
+            except (ValueError, TypeError) as e:
+                print(f"Error processing booking date/time: {e}")
+                # Continue with existing results if date/time format is invalid
 
         db_results = RestaurantSerializer(queryset, many=True).data
 
@@ -308,6 +347,29 @@ class OwnerRestaurantListingsView(APIView):
         serializer = RestaurantListingSerializer(listings, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class OperatingHoursViewSet(viewsets.ModelViewSet):
+    queryset = OperatingHours.objects.all()
+    serializer_class = OperatingHoursSerializer
+    
+    def get_queryset(self):
+        queryset = OperatingHours.objects.all()
+        restaurant_id = self.request.query_params.get('restaurant_id', None)
+        if restaurant_id is not None:
+            queryset = queryset.filter(restaurant_id=restaurant_id)
+        return queryset
+
+class RestaurantViewSet(viewsets.ModelViewSet):
+    queryset = Restaurant.objects.all()
+    serializer_class = RestaurantSerializer
+    
+    @action(detail=True, methods=['get'])
+    def operating_hours(self, request, pk=None):
+        restaurant = self.get_object()
+        hours = OperatingHours.objects.filter(restaurant=restaurant)
+        serializer = OperatingHoursSerializer(hours, many=True)
+        return Response(serializer.data)
+    
 
 class DeletePhotoView(APIView):
     permission_classes = [IsAuthenticated]

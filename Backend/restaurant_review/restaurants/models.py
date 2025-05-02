@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from accounts.models import CustomUser  
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class CuisineType(models.Model):
     name = models.CharField(max_length=100)
@@ -58,6 +59,32 @@ class Restaurant(models.Model):
     def __str__(self):
         return self.name
 
+class OperatingHours(models.Model):
+    DAY_CHOICES = [
+        (0, 'Monday'),
+        (1, 'Tuesday'),
+        (2, 'Wednesday'),
+        (3, 'Thursday'),
+        (4, 'Friday'),
+        (5, 'Saturday'),
+        (6, 'Sunday'),
+    ]
+    
+    restaurant = models.ForeignKey('Restaurant', on_delete=models.CASCADE, related_name='operating_hours')
+    day_of_week = models.IntegerField(choices=DAY_CHOICES, validators=[MinValueValidator(0), MaxValueValidator(6)])
+    opening_time = models.TimeField()
+    closing_time = models.TimeField()
+    is_closed = models.BooleanField(default=False)
+    
+    class Meta:
+        unique_together = ('restaurant', 'day_of_week')
+        ordering = ['day_of_week']
+    
+    def __str__(self):
+        if self.is_closed:
+            return f"{self.get_day_of_week_display()}: Closed"
+        return f"{self.get_day_of_week_display()}: {self.opening_time.strftime('%I:%M %p')} - {self.closing_time.strftime('%I:%M %p')}"
+    
 class RestaurantPhoto(models.Model):
     restaurant = models.ForeignKey(
         'Restaurant', 
