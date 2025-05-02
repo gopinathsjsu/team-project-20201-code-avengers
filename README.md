@@ -20,7 +20,7 @@ Our team demonstrated courage by embracing challenges head-on and adapting to ch
 
 Piyush Deshmukh: Worked on the Backend APIs, django models, diagrams, and testing.
 
-Shashank: Worked on the Backend APIs, PostgreSQL database with AWS RDS, EC2 setup
+Shivansh: Worked on the Backend APIs, PostgreSQL database with AWS RDS, EC2 setup
 
 Sriram: Worked on Front-End Implementation, CSS and Javascript Implementation and Validation
 
