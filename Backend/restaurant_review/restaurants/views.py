@@ -1,463 +1,722 @@
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from .models import Restaurant, OperatingHours
-from .serializers import RestaurantSerializer, OperatingHoursSerializer
-from django.shortcuts import render, get_object_or_404
-from django.utils.timezone import now
-from datetime import timedelta
-from django.db.models import Q, Count
-from django.db.models.functions import Lower, Trim
+# views.py
+# ---------------------------------------------------------------------
+#  Imports
+# ---------------------------------------------------------------------
+import logging
+
+logger = logging.getLogger(__name__)
 from django.conf import settings
-from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView
-from rest_framework.response import Response
+from django.utils.timezone import localdate
+from datetime import datetime, timedelta, date as dt_date, time as dt_time
+from collections import defaultdict
+from django.conf import settings
+from django.core.mail import send_mail
+from django.db import transaction
+from django.db.models import Q, Count, Avg
+from django.db.models.functions import Lower, Trim
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
+from django.http import JsonResponse
+from django.db.models import Count, Avg, F, Q
+from django.utils import timezone
+from datetime import timedelta
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from .models import Restaurant, Booking, Table
+
 from rest_framework import status, permissions
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+# views.py
+import json
+
 from accounts.permissions import IsAdmin, IsBusinessOwner
-from .services import fetch_google_places, normalize_google_place_result, fetch_google_place_details
-from .serializers import RestaurantSerializer, RestaurantDetailSerializer, RestaurantListingSerializer
-from .models import Restaurant, RestaurantPhoto, CuisineType, FoodType
+from .models import (
+    Restaurant,
+    RestaurantPhoto,
+    CuisineType,
+    FoodType,
+    Table,
+    Booking,
+)
+from .serializers import (
+    RestaurantSerializer,
+    RestaurantDetailSerializer,
+    RestaurantListingSerializer,
+    BookingSerializer,
+    TableSerializer, 
+)
+from .services import (
+    fetch_google_places,
+    normalize_google_place_result,
+    fetch_google_place_details,
+)
 from .utils import upload_to_s3, delete_s3_object, generate_thumbnail
 
+# ---------------------------------------------------------------------
+#  Search & list views
+# ---------------------------------------------------------------------
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def reservation_analytics_month(request):
+    """
+    Returns analytics about restaurant reservations for the last month
+    """
+    # Calculate date range (last 30 days)
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=30)
+    
+    # Get all restaurants with bookings in the last month
+    restaurants = Restaurant.objects.filter(
+        bookings__created_at__gte=start_date,
+        bookings__created_at__lte=end_date
+    ).distinct()
+    
+    analytics = []
+    
+    for restaurant in restaurants:
+        # Get bookings for this restaurant
+        bookings = Booking.objects.filter(
+            restaurant=restaurant,
+            created_at__gte=start_date,
+            created_at__lte=end_date
+        )
+        
+        # Basic stats
+        reservation_count = bookings.count()
+        avg_party_size = bookings.aggregate(avg=Avg('num_people'))['avg'] or 2.0
+        
+        # Calculate cancellation rate
+        cancelled = bookings.filter(status='CANCELLED').count()
+        cancellation_rate = cancelled / reservation_count if reservation_count > 0 else 0
+        
+        # Find most popular day and time (simplified calculation)
+        day_counts = {}
+        time_counts = {}
+        for booking in bookings:
+            day_name = booking.date.strftime('%A')
+            day_counts[day_name] = day_counts.get(day_name, 0) + 1
+            
+            time_str = booking.time.strftime('%I %p')
+            time_counts[time_str] = time_counts.get(time_str, 0) + 1
+        
+        popular_day = max(day_counts.items(), key=lambda x: x[1])[0] if day_counts else "Friday"
+        popular_time = max(time_counts.items(), key=lambda x: x[1])[0] if time_counts else "7 PM"
+        
+        analytics.append({
+            'restaurant_name': restaurant.name,
+            'reservation_count': reservation_count,
+            'avg_party_size': round(avg_party_size, 1),
+            'popular_time': popular_time,
+            'day_of_week': popular_day,
+            'cancellation_rate': round(cancellation_rate, 2)
+        })
+    
+    # Sort by reservation count (highest first)
+    analytics = sorted(analytics, key=lambda x: x['reservation_count'], reverse=True)
+    
+    return JsonResponse(analytics, safe=False)
 
-# View for searching restaurants using search bar
+class RestaurantTableListView(APIView):
+    """
+    GET /api/<restaurant_id>/tables/
+    → [{id, size, available_times}, …]
+    """
+    def get(self, request, restaurant_id):
+        try:
+            restaurant = Restaurant.objects.get(pk=restaurant_id)
+        except Restaurant.DoesNotExist:
+            return Response({"error": "Restaurant not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        tables = Table.objects.filter(restaurant=restaurant)
+        return Response(TableSerializer(tables, many=True).data, status=200)
 class RestaurantSearchView(APIView):
+    """
+    /api/restaurants/search/?query=&zip_code=&cuisine_type=&food_type=&price_range=&min_rating=&max_rating=
+    """
     def get(self, request):
-        query = request.query_params.get('query', '').strip()
-        zip_code = request.query_params.get('zip_code', '').strip()
-        cuisine_type = request.query_params.get('cuisine_type', '').strip()
-        food_type = request.query_params.get('food_type', '').strip()
-        price_range = request.query_params.get('price_range', '').strip()
-        min_rating = request.query_params.get('min_rating', '')
-        max_rating = request.query_params.get('max_rating', '')
-        booking_date = request.query_params.get('booking_date', '')
-        booking_time = request.query_params.get('booking_time', '')
+        try:
+            date_str     = request.query_params["date"]       # yyyy-mm-dd
+            time_str     = request.query_params["time"]       # hh:mm
+            num_people   = int(request.query_params["num_people"])
+        except (KeyError, ValueError):
+            return Response(
+                {"error": "date, time and num_people are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Fetch restaurants from database
-        queryset = Restaurant.objects.filter()
+        requested = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        low  = (requested - timedelta(minutes=30)).time()
+        high = (requested + timedelta(minutes=30)).time()
 
-        if query:
-            queryset = queryset.filter(
-                Q(name__icontains=query) |
-                Q(description__icontains=query) |
-                Q(cuisine_type__name__icontains=query) |
-                Q(food_type__name__icontains=query)
-            ).distinct()
+        # ───────────── 2. optional location filters ─────────────
+        city_state = request.query_params.get("city_state", "").strip()
+        zip_code   = request.query_params.get("zip_code", "").strip()
+
+        qs = Restaurant.objects.all()
+        if city_state:
+            qs = qs.filter(Q(city__icontains=city_state) | Q(state__icontains=city_state))
         if zip_code:
-            queryset = queryset.filter(zip_code=zip_code)
-        if cuisine_type:
-            cuisine_type_ids = [int(c) for c in cuisine_type.split(",")]
-            queryset = queryset.filter(cuisine_type__id__in=cuisine_type_ids).distinct()
-        if food_type and any(food_type):
-            food_type_ids = [int(c) for c in food_type.split(",")]
-            queryset = queryset.filter(food_type__id__in=food_type_ids).distinct()
-        if price_range:
-            queryset = queryset.filter(price_range=price_range)
-        if min_rating and max_rating:
-            try:
-                min_rating_value = float(min_rating)
-                max_rating_value = float(max_rating)
-                queryset = queryset.filter(rating__gte=min_rating_value, rating__lte=max_rating_value)
-            except ValueError:
-                return Response({"error": "Invalid rating range"}, status=status.HTTP_400_BAD_REQUEST)
+            qs = qs.filter(zip_code=zip_code)
 
-        # Filter by booking date and time
-        if booking_date and booking_time:
-            try:
-                from datetime import datetime
-                booking_datetime = datetime.strptime(booking_date, '%Y-%m-%d')
-                day_of_week = booking_datetime.weekday()  # 0 = Monday, 6 = Sunday
-                
-                booking_time_obj = datetime.strptime(booking_time, '%H:%M').time()
-                
-                # Get restaurant IDs that are open at the requested day and time
-                open_restaurant_ids = []
-                for restaurant in queryset:
-                    try:
-                        hours = OperatingHours.objects.get(
-                            restaurant_id=restaurant.id, 
-                            day_of_week=day_of_week,
-                            is_closed=False
-                        )
-                        
-                        if hours.opening_time <= booking_time_obj <= hours.closing_time:
-                            open_restaurant_ids.append(restaurant.id)
-                    except OperatingHours.DoesNotExist:
-                        # If no hours found, keep the restaurant in results
-                        # (assuming it's using the old hours_of_operation field)
-                        open_restaurant_ids.append(restaurant.id)
-                
-                if open_restaurant_ids:
-                    queryset = queryset.filter(id__in=open_restaurant_ids)
-            except (ValueError, TypeError) as e:
-                print(f"Error processing booking date/time: {e}")
-                # Continue with existing results if date/time format is invalid
+        # ───────────── 3. build availability results ─────────────
+        grouped = defaultdict(lambda: {
+            "restaurant_id": None,
+            "name":          "",
+            "address":       "",
+            "rating":        0,
+            "tables":        [],
+            "bookings_today": 0,
+        })
 
-        db_results = RestaurantSerializer(queryset, many=True).data
+        for rest in qs:
+            for table in Table.objects.filter(restaurant=rest, size__gte=num_people):
+                # keep only start‑times inside the ±30 min window
+                slots = [
+                    t for t in table.available_times
+                    if low <= datetime.strptime(t, "%H:%M").time() <= high
+                ]
+                if not slots:
+                    continue
 
-        # Fetch restaurants from Google Places if zip_code is provided
-        google_results = []
-        if zip_code:
-            google_places = fetch_google_places(zip_code)
-            google_results = [normalize_google_place_result(place) for place in google_places]
+                entry = grouped[rest.id]
+                # fill the restaurant‑level fields once
+                if entry["restaurant_id"] is None:
+                    entry.update(
+                        restaurant_id = rest.id,
+                        name          = rest.name,
+                        address       = rest.address,
+                        rating        = rest.rating,
+                    )
+                bookings_today = Booking.objects.filter(
+                    restaurant=rest,
+                    date=localdate()
+                ).count()
+                entry["bookings_today"] = bookings_today
+                # append this table’s data
+                entry["tables"].append({
+                    "id":    table.id,
+                    "size":  table.size,
+                    "times": sorted(slots),
+                })
 
-        # Combine database results and Google Places results
-        combined_results = db_results + google_results
+        # convert dict → list and send
+        payload = list(grouped.values())
+        return Response(payload, status=status.HTTP_200_OK)
 
-        return Response(combined_results, status=status.HTTP_200_OK)
 
-# View for listing restaurants in DB
+
 class RestaurantListView(ListAPIView):
     serializer_class = RestaurantSerializer
 
     def get_queryset(self):
-        queryset = Restaurant.objects.all()
-
-        search = self.request.query_params.get('search', None)
-        category = self.request.query_params.get('category', None)
-        cuisine = self.request.query_params.get('cuisine', None)
-        food_type = self.request.query_params.get('food_type', None)
-        price_range = self.request.query_params.get('price_range', None)
-        min_rating = self.request.query_params.get('min_rating', '')
-        max_rating = self.request.query_params.get('max_rating', '')
+        qs          = Restaurant.objects.all()
+        search      = self.request.query_params.get("search")
+        cuisine     = self.request.query_params.get("cuisine")
+        food_type   = self.request.query_params.get("food_type")
+        price_range = self.request.query_params.get("price_range")
+        min_rating  = self.request.query_params.get("min_rating", "")
+        max_rating  = self.request.query_params.get("max_rating", "")
 
         if search:
-            queryset = queryset.filter(Q(name__icontains=search) | Q(cuisine_type__icontains=search))
-        if category:
-            queryset = queryset.filter(cuisine_type__icontains=category)
+            qs = qs.filter(
+                Q(name__icontains=search)
+                | Q(cuisine_type__name__icontains=search)
+                | Q(food_type__name__icontains=search)
+            ).distinct()
+
         if cuisine:
-            queryset = queryset.filter(cuisine_type__icontains=cuisine)
+            qs = qs.filter(cuisine_type__name__icontains=cuisine)
+
         if food_type:
-            queryset = queryset.filter(food_type__icontains=food_type)
+            qs = qs.filter(food_type__name__icontains=food_type)
+
         if price_range:
-            queryset = queryset.filter(price_range__icontains=price_range)
+            qs = qs.filter(price_range=price_range)
+
         if min_rating and max_rating:
             try:
-                min_rating_value = float(min_rating)
-                max_rating_value = float(max_rating)
-                queryset = queryset.filter(rating__gte=min_rating_value, rating__lte=max_rating_value)
+                qs = qs.filter(
+                    rating__gte=float(min_rating), rating__lte=float(max_rating)
+                )
             except ValueError:
                 pass
 
-        queryset = queryset.order_by('-rating')
+        return qs.order_by("-rating")
 
-        return queryset
 
-# view for restaurant details page
+# ---------------------------------------------------------------------
+#  Restaurant detail & CRUD
+# ---------------------------------------------------------------------
+
 class RestaurantDetailView(APIView):
-    def get(self, request, *args, **kwargs):
-        restaurant_id = kwargs.get('id')  
-        try:
-            restaurant = Restaurant.objects.get(id=restaurant_id)
-            serializer = RestaurantDetailSerializer(restaurant)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Restaurant.DoesNotExist:
-            return Response({"error": "Restaurant not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-    def put(self, request, *args, **kwargs):
-        restaurant_id = kwargs.get('id') 
-        try:
-            restaurant = Restaurant.objects.get(id=restaurant_id)
-            
-            if restaurant.owner != request.user:
-                return Response({"error": "You are not authorized to edit this restaurant."}, status=status.HTTP_403_FORBIDDEN)
-
-            serializer = RestaurantDetailSerializer(restaurant, data=request.data, partial=True)  # Use `partial=True` to allow partial updates
-            if serializer.is_valid():
-                serializer.save()
-                photos = request.FILES.getlist('photos')
-                for photo in photos:
-                    photo_key = upload_to_s3(photo)
-                    thumbnail_file = generate_thumbnail(photo)
-                    thumbnail_key = "thumbnail/" + photo_key
-                    upload_to_s3(thumbnail_file, thumbnail_key)
-                    RestaurantPhoto.objects.create(restaurant=restaurant, photo_key=photo_key, thumbnail_s3_key = thumbnail_key)
-
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Restaurant.DoesNotExist:
-            return Response({"error": "Restaurant not found"}, status=status.HTTP_404_NOT_FOUND)
-
-# view for duplicate listing        
-class DuplicateListingsView(APIView):
-    def get(self, request):
-        duplicates = Restaurant.objects.annotate(
-            normalized_name=Lower(Trim('name')),
-            normalized_address=Lower(Trim('address')),
-            normalized_city=Lower(Trim('city')),
-            normalized_state=Lower(Trim('state')),
-            normalized_zip_code=Lower(Trim('zip_code'))
-        ).values(
-            'normalized_name', 'normalized_address', 'normalized_city', 'normalized_state', 'normalized_zip_code'
-        ).annotate(count=Count('id')).filter(count__gt=1)
-
-        duplicate_listings = []
-        for duplicate in duplicates:
-            listings = Restaurant.objects.filter(
-                name__iexact=duplicate['normalized_name'],
-                address__iexact=duplicate['normalized_address'],
-                city__iexact=duplicate['normalized_city'],
-                state__iexact=duplicate['normalized_state'],
-                zip_code__iexact=duplicate['normalized_zip_code']
-            )
-            duplicate_listings.extend(RestaurantSerializer(listings, many=True).data)
-
-        return Response(duplicate_listings, status=status.HTTP_200_OK)
     
+    def get(self, request, id):
+        restaurant = get_object_or_404(Restaurant, id=id)
+        bookings_today = Booking.objects.filter(
+            restaurant=restaurant,
+            date=localdate()
+        ).count()
+        data = RestaurantSerializer(restaurant).data
+        data["bookings_today"] = bookings_today
+        return Response(data, status=status.HTTP_200_OK)
+        
+
+    def put(self, request, id):
+        restaurant = get_object_or_404(Restaurant, id=id)
+
+        if restaurant.owner != request.user:
+            return Response(
+                {"error": "Not authorized."}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = RestaurantDetailSerializer(
+            restaurant, data=request.data, partial=True
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        restaurant = serializer.save()
+
+        # handle photo uploads
+        for photo in request.FILES.getlist("photos"):
+            key = upload_to_s3(photo)
+            thumb = generate_thumbnail(photo)
+            thumb_key = f"thumbnail/{key}"
+            upload_to_s3(thumb, thumb_key)
+            RestaurantPhoto.objects.create(
+                restaurant=restaurant, photo_key=key, thumbnail_s3_key=thumb_key
+            )
+        if "tables" in request.data:
+            try:
+                tables_data = json.loads(request.data["tables"])
+            except json.JSONDecodeError:
+                return Response({"error": "Invalid table format"}, status=400)
+
+            for tbl in tables_data:
+                try:
+                    table = Table.objects.get(id=tbl["id"], restaurant=restaurant)
+                    table.size = tbl.get("size", table.size)
+                    table.available_times = tbl.get("available_times", table.available_times)
+                    table.save()
+                except Table.DoesNotExist:
+                    continue  # skip or handle as needed
+
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------
+#  Duplicate detection / admin cleanup
+# ---------------------------------------------------------------------
+
+class DuplicateListingsView(APIView):
+    def get(self, _request):
+        duplicates = (
+            Restaurant.objects.annotate(
+                n_name=Lower(Trim("name")),
+                n_addr=Lower(Trim("address")),
+                n_city=Lower(Trim("city")),
+                n_state=Lower(Trim("state")),
+                n_zip=Lower(Trim("zip_code")),
+            )
+            .values("n_name", "n_addr", "n_city", "n_state", "n_zip")
+            .annotate(cnt=Count("id"))
+            .filter(cnt__gt=1)
+        )
+
+        listings = []
+        for dup in duplicates:
+            listings.extend(
+                RestaurantSerializer(
+                    Restaurant.objects.filter(
+                        name__iexact=dup["n_name"],
+                        address__iexact=dup["n_addr"],
+                        city__iexact=dup["n_city"],
+                        state__iexact=dup["n_state"],
+                        zip_code__iexact=dup["n_zip"],
+                    ),
+                    many=True,
+                ).data
+            )
+        return Response(listings, status=status.HTTP_200_OK)
+
+
 class DeleteDuplicateListingView(APIView):
     permission_classes = [IsAdmin]
 
-    def delete(self, request, id):
-        # Debugging token and user
-        print(f"Authorization Header: {request.headers.get('Authorization', 'None')}")
-        print(f"Authenticated User: {request.user}")
-        
-        if not request.user.is_authenticated:
-            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
-
+    def delete(self, _request, id):
         restaurant = get_object_or_404(Restaurant, id=id)
         restaurant.delete()
-        return Response({"message": f"Listing with ID {id} has been deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-    
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------
+#  Business-owner listing endpoints
+# ---------------------------------------------------------------------
+
 class AddListingView(APIView):
-    permission_classes = [IsBusinessOwner]
-
-    def post(self, request, *args, **kwargs):
-        cuisine_type_input = request.data.get('cuisine_type', [])
-        food_type_input = request.data.get('food_type', [])
-
-        try:
-            # convert id of cuisine type to name
-            if isinstance(cuisine_type_input[0], int):
-                cuisine_names = list(CuisineType.objects.filter(id__in=cuisine_type_input).values_list('name', flat=True))
-            else:
-                cuisine_names = cuisine_type_input
-            # convert id of food type to name
-            if isinstance(food_type_input[0], int):
-                food_names = list(FoodType.objects.filter(id__in=food_type_input).values_list('name', flat=True))
-            else:
-                food_names = food_type_input
-        except Exception as e:
-            return Response({"error": f"Error processing cuisine_type or food_type: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-
-        request.data['cuisine_type'] = cuisine_names
-        request.data['food_type'] = food_names
-
-        serializer = RestaurantSerializer(data=request.data)
-        if serializer.is_valid():
-            restaurant = serializer.save(owner=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        # error debugging
-        print("Validation Errors:", serializer.errors)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+
+    
+
+    permission_classes = [IsBusinessOwner]
+    
+
+    def post(self, request):
+        data = request.data.copy()
+
+        # Parse and convert tables JSON
+        if "tables" in data:
+            try:
+                data["tables"] = json.loads(data["tables"])
+            except json.JSONDecodeError:
+                return Response({"error": "Malformed tables payload"}, status=400)
+        else:
+            data["tables"] = []
+
+        # Get cuisine and food types as names
+        # Use IDs as-is; the serializer should handle them
+        data.setlist("cuisine_type", request.data.getlist("cuisine_type"))
+        data.setlist("food_type", request.data.getlist("food_type"))
+
+        # data["cuisine_type"] = list(
+        #     CuisineType.objects.filter(id__in=request.data.getlist("cuisine_type")).values_list("name", flat=True)
+            # CuisineType.objects.filter(name__in=request.data.getlist("cuisine_type"))
+
+        # )
+        # data["food_type"] = list(
+        #     FoodType.objects.filter(id__in=request.data.getlist("food_type")).values_list("name", flat=True)
+            
+            # FoodType.objects.filter(name__in=request.data.getlist("food_type"))
+
+        # )
+
+        # Serialize restaurant
+        serializer = RestaurantSerializer(data=data, context={"request": request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
+        restaurant = serializer.save(owner=request.user)
+
+        # Create Table entries
+        for table_data in data["tables"]:
+            Table.objects.create(
+                restaurant=restaurant,
+                size=table_data["size"],
+                available_times=table_data.get("available_times", [])
+            )
+
+        return Response(serializer.data, status=201)
+
+    # def post(self, request):
+    #     data = request.data.copy()
+    #     data["cuisine_type"] = list(
+    #         CuisineType.objects.filter(id__in=data.getlist("cuisine_type")).values_list(
+    #             "name", flat=True
+    #         )
+    #     )
+    #     data["food_type"] = list(
+    #         FoodType.objects.filter(id__in=data.getlist("food_type")).values_list(
+    #             "name", flat=True
+    #         )
+    #     )
+
+    #     serializer = RestaurantSerializer(data=data, context={"request": request})
+    #     if not serializer.is_valid():
+    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    #     restaurant = serializer.save(owner=request.user)
+    #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    # def post(self, request):
+    #     data = request.data.copy()
+
+    #     # ▶️ tables arrives as a JSON string in multipart/form‑data
+    #     if "tables" in data:
+    #         try:
+    #             data["tables"] = json.loads(data["tables"])
+    #         except json.JSONDecodeError:
+    #             return Response(
+    #                 {"error": "Malformed tables payload"},
+    #                 status=status.HTTP_400_BAD_REQUEST,
+    #             )
+
+    #     serializer = RestaurantSerializer(data=data, context={"request": request})
+    #     if serializer.is_valid():
+    #         serializer.save(owner=request.user)
+    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class OldListingsView(APIView):
     permission_classes = [IsAdmin]
 
-    def get(self, request):
-        print(f"Authenticated User: {request.user}")  # Log the user
-        print(f"User Role: {request.user.role}") 
-        print(f"Authorization Header: {request.headers.get('Authorization', 'None')}")
-        if not request.user.is_authenticated:
-            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        # cutoff is at six months
-        six_months_ago = now() - timedelta(days=180)
-
-        # Query for listings with no reviews and created over 6 months ago
-        old_listings = Restaurant.objects.filter(
-            review_count=0,
-            created_at__lt=six_months_ago
+    def get(self, _request):
+        cutoff = timezone.now() - timedelta(days=180)
+        old = Restaurant.objects.filter(review_count=0, created_at__lt=cutoff)
+        return Response(
+            RestaurantSerializer(old, many=True).data, status=status.HTTP_200_OK
         )
 
-        serializer = RestaurantSerializer(old_listings, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def delete(self, _request, id):
+        cutoff = timezone.now() - timedelta(days=180)
+        listing = get_object_or_404(Restaurant, id=id, review_count=0, created_at__lt=cutoff)
+        listing.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def delete(self, request, id):
-        try:
-            listing = Restaurant.objects.get(id=id, review_count=0, created_at__lt=now() - timedelta(days=180))
-            listing.delete()
-            return Response({"message": f"Listing with ID {id} has been deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-        except Restaurant.DoesNotExist:
-            return Response({"error": "Listing not found or does not meet deletion criteria."}, status=status.HTTP_404_NOT_FOUND)
-
-class AddRestaurantListingView(APIView):
-    permission_classes = [IsBusinessOwner]
-
-    def post(self, request):
-        print(f"Authenticated User: {request.user}")  # Log the user
-        print(f"Request Auth: {request.auth}")  # Log the token or authentication details
-
-        if not request.user.is_authenticated:
-            return Response({"detail": "Authentication credentials were not provided."}, status=401)
-
-        serializer = RestaurantSerializer(data=request.data, context={'request': request})
-        print(request.FILES.getlist('photos'))
-        print(f"Data in POST request: {request.data}")
-        if serializer.is_valid():
-            restaurant = serializer.save()
-            photos = request.FILES.getlist('photos')  # Expecting multiple photos
-            print(f"len of files {len(photos)}")
-            print(f"files : {request.FILES}")
-            for photo in photos:    
-                photo_key = upload_to_s3(photo)
-                thumbnail_file = generate_thumbnail(photo)
-                thumbnail_key = "thumbnail/" + photo_key
-                upload_to_s3(thumbnail_file, thumbnail_key)
-                RestaurantPhoto.objects.create(restaurant=restaurant, photo_key=photo_key, thumbnail_s3_key = thumbnail_key)
-
-
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
-
-class UpdateRestaurantListingView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def patch(self, request, pk):
-        try:
-            listing = Restaurant.objects.get(pk=pk, owner=request.user)
-        except Restaurant.DoesNotExist:
-            return Response({"error": "Listing not found or access denied."}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = RestaurantSerializer(listing, data=request.data, partial=True)
-        if serializer.is_valid():
-            listing = serializer.save()
-            photos = request.FILES.getlist('photos')
-            for photo in photos:
-                photo_key = upload_to_s3(photo)
-                thumbnail_file = generate_thumbnail(photo)
-                thumbnail_key = "thumbnail/" + photo_key
-                upload_to_s3(thumbnail_file, thumbnail_key)
-                RestaurantPhoto.objects.create(restaurant=listing, photo_key=photo_key, thumbnail_s3_key = thumbnail_key)
-
-
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class OwnerRestaurantListingsView(APIView):
     permission_classes = [IsBusinessOwner]
 
     def get(self, request):
-        if request.user.role != 'owner':
-            return Response({"error": "Only business owners can view listings."}, status=status.HTTP_403_FORBIDDEN)
-
         listings = Restaurant.objects.filter(owner=request.user)
-        serializer = RestaurantListingSerializer(listings, many=True)
+        return Response(
+            RestaurantListingSerializer(listings, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class UpdateRestaurantListingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        listing = get_object_or_404(Restaurant, pk=pk, owner=request.user)
+        serializer = RestaurantSerializer(listing, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        listing = serializer.save()
+
+        for photo in request.FILES.getlist("photos"):
+            key = upload_to_s3(photo)
+            thumb = generate_thumbnail(photo)
+            thumb_key = f"thumbnail/{key}"
+            upload_to_s3(thumb, thumb_key)
+            RestaurantPhoto.objects.create(
+                restaurant=listing, photo_key=key, thumbnail_s3_key=thumb_key
+            )
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class OperatingHoursViewSet(viewsets.ModelViewSet):
-    queryset = OperatingHours.objects.all()
-    serializer_class = OperatingHoursSerializer
-    
-    def get_queryset(self):
-        queryset = OperatingHours.objects.all()
-        restaurant_id = self.request.query_params.get('restaurant_id', None)
-        if restaurant_id is not None:
-            queryset = queryset.filter(restaurant_id=restaurant_id)
-        return queryset
-
-class RestaurantViewSet(viewsets.ModelViewSet):
-    queryset = Restaurant.objects.all()
-    serializer_class = RestaurantSerializer
-    
-    @action(detail=True, methods=['get'])
-    def operating_hours(self, request, pk=None):
-        restaurant = self.get_object()
-        hours = OperatingHours.objects.filter(restaurant=restaurant)
-        serializer = OperatingHoursSerializer(hours, many=True)
-        return Response(serializer.data)
-    
+# ---------------------------------------------------------------------
+#  Photo management
+# ---------------------------------------------------------------------
 
 class DeletePhotoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, photo_id):
-        """
-        Deletes a specific photo for a restaurant from S3 and database.
-        """
-        try:
-            # Fetch the photo record
-            photo = RestaurantPhoto.objects.get(id=photo_id)
+        photo = get_object_or_404(RestaurantPhoto, id=photo_id)
 
-            # Check ownership: ensure the photo belongs to a restaurant owned by the user
-            if photo.restaurant.owner != request.user:
-                return Response({"error": "Access denied."}, status=status.HTTP_403_FORBIDDEN)
+        if photo.restaurant.owner != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
 
-            # Delete the photo from S3
-            # print(photo.photo_key)
-            if delete_s3_object(photo.photo_key):
-                # If S3 deletion is successful, delete the record from the database
-                photo.delete()
-                return Response({"message": "Photo deleted successfully."}, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": "Failed to delete photo from S3."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if delete_s3_object(photo.photo_key):
+            photo.delete()
+            return Response(status=status.HTTP_200_OK)
 
-
-
-        except RestaurantPhoto.DoesNotExist:
-            return Response({"error": "Photo not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to delete from S3"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 class UploadPhotoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, restaurant_id):
-        """
-        Upload photos for a restaurant.
-        """
-        try:
-            # Fetch the restaurant object to ensure the user owns it
-            restaurant = Restaurant.objects.get(id=restaurant_id)
+        restaurant = get_object_or_404(Restaurant, id=restaurant_id)
 
-            if restaurant.owner != request.user:
-                return Response({"error": "Access denied."}, status=status.HTTP_403_FORBIDDEN)
+        if restaurant.owner != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
 
-            # Check if the file is in the request
-            if 'photos' not in request.FILES:
-                return Response({"error": "No photos provided."}, status=status.HTTP_400_BAD_REQUEST)
+        for photo in request.FILES.getlist("photos"):
+            key = upload_to_s3(photo)
+            thumb = generate_thumbnail(photo)
+            thumb_key = f"thumbnail/{key}"
+            upload_to_s3(thumb, thumb_key)
+            RestaurantPhoto.objects.create(
+                restaurant=restaurant, photo_key=key, thumbnail_s3_key=thumb_key
+            )
 
-            photos = request.FILES.getlist('photos')
-            for photo in photos:
-                photo_key = upload_to_s3(photo)
-                print("resetting buffer")
-                thumbnail_file = generate_thumbnail(photo)
-                thumbnail_key = "thumbnail/" + photo_key
-                upload_to_s3(thumbnail_file, thumbnail_key)
-                RestaurantPhoto.objects.create(restaurant=restaurant, photo_key=photo_key, thumbnail_s3_key = thumbnail_key)
+        return Response(status=status.HTTP_201_CREATED)
 
-
-            return Response({"message": "Photos uploaded successfully.", "status": "uploaded"}, status=status.HTTP_201_CREATED)
-
-        except Restaurant.DoesNotExist:
-            return Response({"error": "Restaurant not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PhotoDetailView(APIView):
-    def get(self, request, photo_id):
-        try:
-            photo = RestaurantPhoto.objects.get(id=photo_id)
-            full_resolution_url = f"https://{settings.AWS_S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{photo.s3_key}"
-            return Response({"photo_url": full_resolution_url}, status=status.HTTP_200_OK)
-        except RestaurantPhoto.DoesNotExist:
-            return Response({"error": "Photo not found."}, status=status.HTTP_404_NOT_FOUND)
+    def get(self, _request, photo_id):
+        photo = get_object_or_404(RestaurantPhoto, id=photo_id)
+        url = (
+            f"https://{settings.AWS_S3_BUCKET_NAME}.s3."
+            f"{settings.AWS_REGION}.amazonaws.com/{photo.photo_key}"
+        )
+        return Response({"photo_url": url}, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------
+#  Google Places passthrough
+# ---------------------------------------------------------------------
 
 class GooglePlaceDetailView(APIView):
-    def get(self, request, *args, **kwargs):
-        place_id = kwargs.get('place_id')
-        if not place_id:
-            return Response({"error": "Missing place_id parameter."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Fetch details from Google Places
+    def get(self, _request, place_id):
         details = fetch_google_place_details(place_id)
         if not details:
-            return Response({"error": "Could not fetch details for the provided place_id."}, status=status.HTTP_404_NOT_FOUND)
-
+            return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(details, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------
+#  Booking
+# ---------------------------------------------------------------------
+
+class BookTableAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+# #     @api_view(["POST"])
+# # @permission_classes([IsAuthenticated])
+#     def cancel_booking(request, booking_id):
+#         booking = get_object_or_404(Booking, id=booking_id, user=request.user)
+#         booking.status = Booking.Status.CANCELLED
+#         booking.save()
+#         return Response({"message": "Booking cancelled."}, status=200)
+
+    @transaction.atomic
+    def post(self, request):
+        user = request.user
+        data = request.data
+
+        # ----- Parse inputs ----------------------------------------------------------
+        try:
+            date_obj = dt_date.fromisoformat(data["date"])
+            time_obj = dt_time.fromisoformat(data["time"])
+            num_people = int(data["num_people"])
+            restaurant_id = int(data["restaurant_id"])
+            table_id = int(data["table_id"])
+        except (KeyError, ValueError):
+            return Response(
+                {"error": "Invalid or missing parameters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if date_obj < timezone.localdate() or (
+            date_obj == timezone.localdate() and time_obj <= timezone.localtime().time()
+        ):
+            return Response(
+                {"error": "Cannot book in the past."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ----- Fetch table with row-level lock --------------------------------------
+        try:
+            table = (
+                Table.objects.select_for_update()
+                .get(id=table_id, restaurant_id=restaurant_id)
+            )
+        except Table.DoesNotExist:
+            return Response(
+                {"error": "Table / restaurant mismatch."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if num_people > table.size:
+            return Response(
+                {"error": "Table seats fewer than requested party."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ----- Optional: enforce available_times ±30 minutes ------------------------
+        if table.available_times:
+            req_minutes = time_obj.hour * 60 + time_obj.minute
+            within_window = any(
+                abs(
+                    req_minutes
+                    - (
+                        datetime.strptime(t, "%H:%M").hour * 60
+                        + datetime.strptime(t, "%H:%M").minute
+                    )
+                )
+                <= 30
+                for t in table.available_times
+            )
+            if not within_window:
+                return Response(
+                    {"error": "Requested time outside allowed slots."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # ----- Double-booking check --------------------------------------------------
+        if Booking.objects.filter(
+            table=table,
+            date=date_obj,
+            time=time_obj,
+            status=Booking.Status.BOOKED,
+        ).exists():
+            return Response(
+                {"error": "Table already booked at that time."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ----- Create booking --------------------------------------------------------
+        booking = Booking.objects.create(
+            user=user,
+            restaurant_id=restaurant_id,
+            table=table,
+            date=date_obj,
+            time=time_obj,
+            num_people=num_people,
+        )
+
+        # ----- Confirmation e-mail ---------------------------------------------------
+        try:
+            print("Attempting to send email to:", user.email)
+            send_mail(
+                'Booking Confirmation',
+                (
+                    f"Hi {user.first_name or user.username},\n\n"
+                    f"Your table for {num_people} at {booking.restaurant.name} "
+                    f"on {date_obj:%B %d, %Y} at {time_obj:%H:%M} is confirmed."
+                ),
+                "noreply@restaurantapp.com",
+                [user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            logger.error("Email send failed: %s", e)  # logs to console or file
+            print("Email send failed:", e) 
+            
+            print("Email user:", settings.EMAIL_HOST_USER)
+
+
+        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
+
+class CancelBookingAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        data = request.data
+        restaurant_id = data.get("restaurant_id")
+        table_id = data.get("table_id")
+        date = data.get("date")
+        time = data.get("time")
+
+        booking = Booking.objects.filter(
+            user=user,
+            restaurant_id=restaurant_id,
+            table_id=table_id,
+            date=date,
+            time=time,
+            status=Booking.Status.BOOKED,
+        ).first()
+
+        if not booking:
+            return Response({"error": "Booking not found."}, status=404)
+
+        booking.status = Booking.Status.CANCELLED
+        booking.save()
+        return Response({"message": "Booking cancelled."})
