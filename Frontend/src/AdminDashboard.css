@@ -1,0 +1,106 @@
+/* Admin Dashboard Container */
+.admin-dashboard {
+    margin-top: 40px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 10px;
+}
+
+/* Card Styling */
+.card {
+    border: none;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Heading Styles */
+h2, h3 {
+    font-family: 'Segoe UI', sans-serif;
+    color: #343a40;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+/* Admin Option Button */
+.admin-option {
+    font-weight: 600;
+    font-size: 1.1rem;
+    width: 100%;
+    padding: 12px 18px;
+    border-radius: 8px;
+    background: linear-gradient(135deg,  #e84393, #d63031,); /* Reverting to previous button color */
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    text-align: left;
+    margin-bottom: 20px; /* Increased margin to provide space between buttons */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-option:hover {
+    transform: translateY(-4px);
+    background: linear-gradient(135deg,  #e84393, #d63031,); /* Darker hover gradient */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Admin Option Icon (if any) */
+.admin-option i {
+    font-size: 1.2rem;
+}
+
+/* Options Section Styling */
+.options-section {
+    margin-top: 40px;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* List Group Items */
+.list-group-item {
+    font-size: 1rem;
+    padding: 14px 20px;
+    color: #495057;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.list-group-item:hover {
+    background-color: #e2e6ea;
+    transform: translateY(-2px);
+}
+
+/* Spacing for list items */
+.list-group-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Additional Styling for Large Screens */
+@media (min-width: 768px) {
+    .admin-dashboard {
+        max-width: 1200px;
+        margin: 40px auto;
+    }
+
+    .card {
+        padding: 30px;
+    }
+
+    .options-section {
+        margin-top: 50px;
+    }
+}

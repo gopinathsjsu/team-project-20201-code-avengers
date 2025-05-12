@@ -3,11 +3,7 @@ from django.urls import path
 from django.urls import path, include
 
 from rest_framework.routers import DefaultRouter
-
-
-from . import views  # Import views from the current module (restaurants)  addedd
-
-
+# from . import views
 from .views import (
     # Search & list
     RestaurantSearchView,
@@ -30,6 +26,7 @@ from .views import (
     GooglePlaceDetailView,
     BookTableAPIView,
     CancelBookingAPIView,
+    MyBookingsAPIView
 )
 
 
@@ -82,12 +79,12 @@ urlpatterns = [
     #  Booking
     # ───────────────────────────────────
     path("bookings/", BookTableAPIView.as_view(), name="book-table"),
-    path("restaurants/bookings/cancel/", CancelBookingAPIView.as_view()),
+    path("bookings/my/", MyBookingsAPIView.as_view(), name="my-bookings"),
+    path("bookings/cancel/<int:booking_id>/", CancelBookingAPIView.as_view()),
     # path('restaurants/tables/<int:table_id>/edit/', update_table),
     path("<int:restaurant_id>/tables/", RestaurantTableListView.as_view(), name="restaurant-tables"),
-    # path('api/bookings/', views.create_booking, name='create-booking'),
     
-    path('admin/reservation-analytics/month/', views.reservation_analytics_month, name='reservation_analytics_month'),
+    # path('api/bookings/', views.create_booking, name='create-booking'),
 
     path("", include(router.urls)),
 ]

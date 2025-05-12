@@ -13,14 +13,14 @@ import RestaurantList from './RestaurantList';
 import RestaurantDetails from './RestaurantDetails';
 import ManageListing from './ManageListing';
 import EditListing from './EditListing';
-import About from './about';
+// import About from './about';
 import Profile from './Profile'
 import Navbar from './Navbar';
 function App() {
     return (
         <Router>
             <Routes>
-                <Route path="/" element={<Index />} /> 
+                <Route path="/" element={<Index />} />  {/* This sets Index as the homepage */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/profile" element={<privateRoute allowedRoles={["user"]}><Profile /></privateRoute>} />
                 <Route path="/BusinessOwnerDashboard" element={<privateRoute allowedRoles={["owner"]}><BusinessOwnerDashboard /></privateRoute>} />
@@ -33,7 +33,7 @@ function App() {
                 <Route path="/restaurant/:id" element={<RestaurantDetails />} />
                 <Route path="/manage-listings" element={<ManageListing />} />
                 <Route path="/manage-listings/edit/:id" element={<EditListing />} />
-                <Route path="/About" element={<About />} />
+                {/* <Route path="/About" element={<About />} /> */}
                 <Route path="/Navbar" element={<Navbar />} />
             </Routes>
         </Router>

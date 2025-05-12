@@ -1,0 +1,25 @@
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background-color: #fff;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+}
+
+.nav-item, .login-btn {
+    background: #007bff;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    margin: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 5px;
+}
+
+.nav-item:hover, .login-btn:hover {
+    background: #ff6347;
+    color: #fff;
+}

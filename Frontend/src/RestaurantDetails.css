@@ -1,0 +1,250 @@
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(to bottom, #e0f7fa, #ffffff);
+    color: #333;
+}
+
+/* Container Styling */
+.details-container {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 25px;
+    background: linear-gradient(to right, #ffffff, #e3f2fd);
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 1s ease-out;
+    border: 1px solid #e0e0e0;
+}
+
+/* Header Styling */
+.details-header {
+    text-align: center;
+    margin-bottom: 25px;
+    animation: slideInFromTop 1s ease-out;
+}
+
+.details-header h1 {
+    font-size: 2.8rem;
+    color: #0288d1;
+    margin: 0;
+    text-shadow: 1px 2px 4px rgba(0, 0, 0, 0.1);
+    font-weight: bold;
+}
+
+/* Text Styling */
+.details-text,
+.details-address,
+.details-contact,
+.details-hours {
+    font-size: 1.1rem;
+    margin: 12px 0;
+    color: #555;
+}
+
+.details-description {
+    font-size: 1.2rem;
+    margin: 15px 0;
+    font-style: italic;
+    color: #666;
+    background: #e1f5fe;
+    padding: 10px;
+    border-radius: 10px;
+    text-align: justify;
+    line-height: 1.6;
+}
+
+.details-contact a {
+    color: #0288d1;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.details-contact a:hover {
+    text-decoration: underline;
+}
+
+/* Reviews Section */
+.reviews-container {
+    margin-top: 40px;
+    padding-top: 25px;
+    border-top: 1px solid #bbb;
+}
+
+.reviews-container h2 {
+    font-size: 1.8rem;
+    color: #0288d1;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.review {
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 10px;
+    background: linear-gradient(to right, #e0f7fa, #ffffff);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid #b3e5fc;
+}
+
+.review strong {
+    color: #0288d1;
+    font-weight: bold;
+}
+
+.review p {
+    margin: 5px 0;
+    line-height: 1.5;
+}
+
+/* Review Form */
+.review-form-container {
+    margin-top: 50px;
+    padding-top: 20px;
+    border-top: 2px solid #0288d1;
+    animation: fadeIn 1.2s ease-out;
+}
+
+.review-form-container h2 {
+    font-size: 1.8rem;
+    color: #0288d1;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.form-group {
+    margin: 15px 0;
+}
+
+.form-group label {
+    font-weight: bold;
+    margin-bottom: 8px;
+    display: block;
+    color: #555;
+}
+
+textarea {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.05);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #0288d1;
+    box-shadow: 0 0 8px rgba(2, 136, 209, 0.5);
+}
+
+/* Stars */
+.star {
+    font-size: 28px;
+    color: #ccc;
+    transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.star.selected {
+    color: #fdd835;
+    transform: scale(1.2);
+}
+
+.star:hover {
+    color: #fdd835;
+    transform: scale(1.2);
+}
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    background: linear-gradient(to right, #0288d1, #03a9f4);
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1rem;
+    text-transform: uppercase;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.btn:hover {
+    background: linear-gradient(to right, #0277bd, #0288d1);
+    transform: translateY(-2px);
+}
+
+.success-message {
+    color: #388e3c;
+    font-weight: bold;
+    margin-bottom: 10px;
+    background: #e8f5e9;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.error-message {
+    color: #d32f2f;
+    font-weight: bold;
+    margin-bottom: 10px;
+    background: #ffebee;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideInFromTop {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+    .details-container {
+        padding: 20px;
+    }
+
+    .details-header h1 {
+        font-size: 2rem;
+    }
+
+    .review-form-container h2 {
+        font-size: 1.5rem;
+    }
+}
+.view-map-btn {
+    display: inline-block;
+    margin: 16px 0;
+  }
+
+  .time-btn {
+    margin: 4px;
+    padding: 6px 12px;
+    background: #0288d1;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .time-btn:hover { background: #0277bd; }
+  

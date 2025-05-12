@@ -17,14 +17,6 @@ from django.db.models.functions import Lower, Trim
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from django.http import JsonResponse
-from django.db.models import Count, Avg, F, Q
-from django.utils import timezone
-from datetime import timedelta
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from .models import Restaurant, Booking, Table
-
 from rest_framework import status, permissions
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -60,66 +52,7 @@ from .utils import upload_to_s3, delete_s3_object, generate_thumbnail
 # ---------------------------------------------------------------------
 #  Search & list views
 # ---------------------------------------------------------------------
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def reservation_analytics_month(request):
-    """
-    Returns analytics about restaurant reservations for the last month
-    """
-    # Calculate date range (last 30 days)
-    end_date = timezone.now()
-    start_date = end_date - timedelta(days=30)
-    
-    # Get all restaurants with bookings in the last month
-    restaurants = Restaurant.objects.filter(
-        bookings__created_at__gte=start_date,
-        bookings__created_at__lte=end_date
-    ).distinct()
-    
-    analytics = []
-    
-    for restaurant in restaurants:
-        # Get bookings for this restaurant
-        bookings = Booking.objects.filter(
-            restaurant=restaurant,
-            created_at__gte=start_date,
-            created_at__lte=end_date
-        )
-        
-        # Basic stats
-        reservation_count = bookings.count()
-        avg_party_size = bookings.aggregate(avg=Avg('num_people'))['avg'] or 2.0
-        
-        # Calculate cancellation rate
-        cancelled = bookings.filter(status='CANCELLED').count()
-        cancellation_rate = cancelled / reservation_count if reservation_count > 0 else 0
-        
-        # Find most popular day and time (simplified calculation)
-        day_counts = {}
-        time_counts = {}
-        for booking in bookings:
-            day_name = booking.date.strftime('%A')
-            day_counts[day_name] = day_counts.get(day_name, 0) + 1
-            
-            time_str = booking.time.strftime('%I %p')
-            time_counts[time_str] = time_counts.get(time_str, 0) + 1
-        
-        popular_day = max(day_counts.items(), key=lambda x: x[1])[0] if day_counts else "Friday"
-        popular_time = max(time_counts.items(), key=lambda x: x[1])[0] if time_counts else "7 PM"
-        
-        analytics.append({
-            'restaurant_name': restaurant.name,
-            'reservation_count': reservation_count,
-            'avg_party_size': round(avg_party_size, 1),
-            'popular_time': popular_time,
-            'day_of_week': popular_day,
-            'cancellation_rate': round(cancellation_rate, 2)
-        })
-    
-    # Sort by reservation count (highest first)
-    analytics = sorted(analytics, key=lambda x: x['reservation_count'], reverse=True)
-    
-    return JsonResponse(analytics, safe=False)
+
 
 class RestaurantTableListView(APIView):
     """
@@ -176,9 +109,23 @@ class RestaurantSearchView(APIView):
         for rest in qs:
             for table in Table.objects.filter(restaurant=rest, size__gte=num_people):
                 # keep only start‑times inside the ±30 min window
+                booked_times = set(
+                    Booking.objects.filter(
+                        table=table,
+                        date=requested.date(),
+                        status=Booking.Status.BOOKED,
+                    ).values_list("time", flat=True)
+                )
+
+                # keep only times that are:
+                # (1) within the ±30min window
+                # (2) not already booked
                 slots = [
                     t for t in table.available_times
-                    if low <= datetime.strptime(t, "%H:%M").time() <= high
+                    if (
+                        low <= datetime.strptime(t, "%H:%M").time() <= high
+                        and datetime.strptime(t, "%H:%M").time() not in booked_times
+                    )
                 ]
                 if not slots:
                     continue
@@ -298,22 +245,100 @@ class RestaurantDetailView(APIView):
                 return Response({"error": "Invalid table format"}, status=400)
 
             for tbl in tables_data:
-                try:
-                    table = Table.objects.get(id=tbl["id"], restaurant=restaurant)
-                    table.size = tbl.get("size", table.size)
-                    table.available_times = tbl.get("available_times", table.available_times)
-                    table.save()
-                except Table.DoesNotExist:
-                    continue  # skip or handle as needed
+                table_id = tbl.get("id")
+                size = tbl.get("size")
+                available_times = tbl.get("available_times", [])
+
+                if table_id:
+                    # Update existing table
+                    try:
+                        table = Table.objects.get(id=table_id, restaurant=restaurant)
+                        table.size = size
+                        table.available_times = available_times
+                        table.save()
+                    except Table.DoesNotExist:
+                        continue  # or raise error if needed
+                else:
+                    # Create new table
+                    Table.objects.create(
+                        restaurant=restaurant,
+                        size=size,
+                        available_times=available_times
+                    )
 
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class ReservationAnalyticsMonthView(APIView):
+    permission_classes = [IsAuthenticated]
+
+
+    def get(self, request):
+        """
+        Returns analytics about restaurant reservations for the last month
+        """
+        # Calculate date range (last 30 days)
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=30)
+        
+        # Get all restaurants with bookings in the last month
+        restaurants = Restaurant.objects.filter(
+            bookings__created_at__gte=start_date,
+            bookings__created_at__lte=end_date
+        ).distinct()
+        
+        analytics = []
+        
+        for restaurant in restaurants:
+            # Get bookings for this restaurant
+            bookings = Booking.objects.filter(
+                restaurant=restaurant,
+                created_at__gte=start_date,
+                created_at__lte=end_date
+            )
+            
+            # Basic stats
+            reservation_count = bookings.count()
+            avg_party_size = bookings.aggregate(avg=Avg('num_people'))['avg'] or 2.0
+            
+            # Calculate cancellation rate
+            cancelled = bookings.filter(status='CANCELLED').count()
+            cancellation_rate = cancelled / reservation_count if reservation_count > 0 else 0
+            
+            # Find most popular day and time (simplified calculation)
+            day_counts = {}
+            time_counts = {}
+            for booking in bookings:
+                day_name = booking.date.strftime('%A')
+                day_counts[day_name] = day_counts.get(day_name, 0) + 1
+                
+                time_str = booking.time.strftime('%I %p')
+                time_counts[time_str] = time_counts.get(time_str, 0) + 1
+            
+            popular_day = max(day_counts.items(), key=lambda x: x[1])[0] if day_counts else "Friday"
+            popular_time = max(time_counts.items(), key=lambda x: x[1])[0] if time_counts else "7 PM"
+            
+            analytics.append({
+                'restaurant_name': restaurant.name,
+                'reservation_count': reservation_count,
+                'avg_party_size': round(avg_party_size, 1),
+                'popular_time': popular_time,
+                'day_of_week': popular_day,
+                'cancellation_rate': round(cancellation_rate, 2)
+            })
+        
+        # Sort by reservation count (highest first)
+        analytics = sorted(analytics, key=lambda x: x['reservation_count'], reverse=True)
+        
+        
+        return Response(analytics, status=status.HTTP_200_OK)
+
+
 
 
 # ---------------------------------------------------------------------
 #  Duplicate detection / admin cleanup
 # ---------------------------------------------------------------------
-
 class DuplicateListingsView(APIView):
     def get(self, _request):
         duplicates = (
@@ -606,6 +631,7 @@ class BookTableAPIView(APIView):
         if date_obj < timezone.localdate() or (
             date_obj == timezone.localdate() and time_obj <= timezone.localtime().time()
         ):
+            print("inside date_obj < timezone.localdate() or (date_obj == timezone.localdate() and time_obj <= timezone.localtime().time()) - timezone.localtime().time(), time_obj are -  ", timezone.localtime().time(), time_obj)
             return Response(
                 {"error": "Cannot book in the past."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -694,25 +720,46 @@ class BookTableAPIView(APIView):
 
         return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
 
+# class CancelBookingAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request, ):
+#         user = request.user
+#         data = request.data
+#         restaurant_id = data.get("restaurant_id")
+#         table_id = data.get("table_id")
+#         date = data.get("date")
+#         time = data.get("time")
+
+#         booking = Booking.objects.filter(
+#             user=user,
+#             restaurant_id=restaurant_id,
+#             table_id=table_id,
+#             date=date,
+#             time=time,
+#             status=Booking.Status.BOOKED,
+#         ).first()
+
+#         if not booking:
+#             return Response({"error": "Booking not found."}, status=404)
+
+#         booking.status = Booking.Status.CANCELLED
+#         booking.save()
+#         return Response({"message": "Booking cancelled."})
+
 class CancelBookingAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
+    def post(self, request, booking_id):
         user = request.user
-        data = request.data
-        restaurant_id = data.get("restaurant_id")
-        table_id = data.get("table_id")
-        date = data.get("date")
-        time = data.get("time")
 
         booking = Booking.objects.filter(
+            id=booking_id,
             user=user,
-            restaurant_id=restaurant_id,
-            table_id=table_id,
-            date=date,
-            time=time,
             status=Booking.Status.BOOKED,
         ).first()
+        if booking.status == 'CANCELLED':
+            return Response({"detail": "Booking already cancelled."}, status=status.HTTP_400_BAD_REQUEST)
 
         if not booking:
             return Response({"error": "Booking not found."}, status=404)
@@ -720,3 +767,14 @@ class CancelBookingAPIView(APIView):
         booking.status = Booking.Status.CANCELLED
         booking.save()
         return Response({"message": "Booking cancelled."})
+
+
+
+class MyBookingsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        bookings = Booking.objects.filter(
+            user=request.user, status=Booking.Status.BOOKED
+        ).order_by('-date', '-time')
+        return Response(BookingSerializer(bookings, many=True).data)

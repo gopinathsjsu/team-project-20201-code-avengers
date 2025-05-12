@@ -1,55 +1,137 @@
-from rest_framework import serializers
-from .models import Restaurant, OperatingHours
-from django.db.models import Avg, Count
-from .models import Restaurant, CuisineType, FoodType, RestaurantPhoto
-from reviews.models import Review
 from django.conf import settings
-from accounts.serializers import AccountSerializer
+from django.utils import timezone
+from django.db.models import Avg
+from rest_framework import serializers
 
 
+from .models import (
+    Restaurant,
+    CuisineType,
+    FoodType,
+    RestaurantPhoto,
+    Table,
+    Booking,
+)
+from reviews.models import Review
+
+class TableSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = Table
+        fields = ["id", "size", "available_times"]
+
+class TablePayloadSerializer(serializers.Serializer):
+    size = serializers.IntegerField(min_value=1)
+    available_times = serializers.ListField(
+        child=serializers.CharField(), min_length=1
+    )
+
+# ------------------------------------------------------------------
+#  Photo
+# ------------------------------------------------------------------
 class RestaurantPhotoSerializer(serializers.ModelSerializer):
     thumbnail_url = serializers.SerializerMethodField()
-    high_res_url = serializers.SerializerMethodField()
+    high_res_url  = serializers.SerializerMethodField()
+
     class Meta:
-        model = RestaurantPhoto
-        fields = ['id', 'thumbnail_url', 'uploaded_at','high_res_url']
-    
+        model  = RestaurantPhoto
+        fields = ["id", "thumbnail_url", "high_res_url", "uploaded_at"]
+
+    # ↓ Presigned or public URLs for S3 objects
     def get_thumbnail_url(self, obj):
-        return f"https://{settings.AWS_S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{obj.thumbnail_s3_key}"
-        # return f"http://localhost:9004/photos/{obj.thumbnail_s3_key}"
-    
-    def get_high_res_url(self,obj):
-        return f"https://{settings.AWS_S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{obj.photo_key}"
+        return (
+            f"https://{settings.AWS_S3_BUCKET_NAME}.s3."
+            f"{settings.AWS_REGION}.amazonaws.com/{obj.thumbnail_s3_key}"
+        )
+
+    def get_high_res_url(self, obj):
+        return (
+            f"https://{settings.AWS_S3_BUCKET_NAME}.s3."
+            f"{settings.AWS_REGION}.amazonaws.com/{obj.photo_key}"
+        )
 
 
-        # return f"http://localhost:9004/photos/{obj.photo_key}"
-
-
-class OperatingHoursSerializer(serializers.ModelSerializer):
-    day_name = serializers.CharField(source='get_day_of_week_display', read_only=True)
-    
-    class Meta:
-        model = OperatingHours
-        fields = ['id', 'day_of_week', 'day_name', 'opening_time', 'closing_time', 'is_closed']
-
-# Update the Restaurant serializer to include operating hours
+# ------------------------------------------------------------------
+#  Restaurant (CRUD / List)
+# ------------------------------------------------------------------
 class RestaurantSerializer(serializers.ModelSerializer):
-    operating_hours = OperatingHoursSerializer(many=True, read_only=True)
-    
+    photos        = RestaurantPhotoSerializer(many=True, read_only=True)
+    owner         = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    cuisine_type  = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=CuisineType.objects.all()
+    )
+    food_type     = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=FoodType.objects.all()
+    )
+    review_count  = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    tables = TablePayloadSerializer(many=True, write_only=True, required=False)
     class Meta:
-        model = Restaurant
-        fields = ['id', 'name', 'address', 'city', 'state', 'zip_code', 
-                  'price_range', 'hours_of_operation', 'operating_hours', 
-                  'website', 'phone_number', 'rating', 'review_count', 
-                  'latitude', 'longitude', 'description', 'created_at']
+        # 1️⃣  Read-only fields
+        
+        model  = Restaurant
+        fields = [
+            "id",
+            "name",
+            "address",
+            "city",
+            "state",
+            "zip_code",
+            "price_range",
+            "rating",
+            "hours_of_operation",
+            "website",
+            "phone_number",
+            "owner",
+            "cuisine_type",
+            "food_type",
+            "description",
+            "review_count",
+            "average_rating",
+            "photos",
+            "tables",
+        ]
+        read_only_fields = ["id"]
 
+    def get_review_count(self, obj):
+        return Review.objects.filter(restaurant=obj).count()
+
+    def get_average_rating(self, obj):
+        avg = (
+            Review.objects.filter(restaurant=obj)
+            .aggregate(Avg("rating"))
+            .get("rating__avg")
+        )
+        return round(avg, 1) if avg else None
+    
+    # tables = TablePayloadSerializer(many=True, write_only=True, required=False)
+        
+
+    def create(self, validated_data):
+        tables_payload = validated_data.pop("tables", [])
+        restaurant = super().create(validated_data)
+
+        # Build Table rows
+        for t in tables_payload:
+            Table.objects.create(
+                restaurant=restaurant,
+                size=t["size"],
+                available_times=t["available_times"],
+            )
+        return restaurant
+
+
+
+# ------------------------------------------------------------------
+#  Restaurant Detail (read-only)
+# ------------------------------------------------------------------
 class RestaurantDetailSerializer(serializers.ModelSerializer):
     reviews = serializers.SerializerMethodField()
-    photos = RestaurantPhotoSerializer(many=True, read_only=True)
+    photos  = RestaurantPhotoSerializer(many=True, read_only=True)
 
     class Meta:
-        model = Restaurant
+        model  = Restaurant
         fields = [
+            "id",
             "name",
             "cuisine_type",
             "food_type",
@@ -64,170 +146,125 @@ class RestaurantDetailSerializer(serializers.ModelSerializer):
             "phone_number",
             "latitude",
             "longitude",
-            "reviews",
             "description",
             "photos",
+            "reviews",
         ]
 
     def get_reviews(self, obj):
         return [
             {
-                "reviewer": review.user.username,
-                "comment": review.review_text,
-                "rating": review.rating,
+                "reviewer": r.user.username,
+                "comment":  r.review_text,
+                "rating":   r.rating,
             }
-            for review in obj.reviews.all()
+            for r in Review.objects.filter(restaurant=obj)
         ]
 
+
+# ------------------------------------------------------------------
+#  Lightweight listing for search results
+# ------------------------------------------------------------------
 class RestaurantListingSerializer(serializers.ModelSerializer):
-    owner = serializers.ReadOnlyField(source='owner.username')  # Display owner's username
-    photos = RestaurantPhotoSerializer(many=True, read_only=True, source='photos')
+    photos = RestaurantPhotoSerializer(many=True, read_only=True)
+
     class Meta:
-        model = Restaurant
+        model  = Restaurant
         fields = [
-            'id', 'name', 'address', 'city', 'state', 'zip_code', 'cuisine_type', 
-            'food_type', 'price_range', 'hours_of_operation', 'website', 'phone_number', 
-            'owner', 'photos'
+            "id",
+            "name",
+            "city",
+            "state",
+            "price_range",
+            "rating",
+            "cuisine_type",
+            "food_type",
+            "photos",
         ]
-        read_only_fields = ['id', 'owner','photos']  # Prevent manual updates to these fields
-
-    def get_category_display(self, obj):
-        # Translate the category choice to a human-readable value
-        return dict(Restaurant.CATEGORY_CHOICES).get(obj.cuisine_type, obj.cuisine_type)
-
-    def get_food_type_display(self, obj):
-        # Translate the food type choice to a human-readable value
-        return dict(Restaurant.FOOD_TYPE_CHOICES).get(obj.food_type, obj.food_type)
-
-    def get_price_range_display(self, obj):
-        # Translate the price range choice to a human-readable value
-        return dict(Restaurant.PRICE_RANGE_CHOICES).get(obj.price_range, obj.price_range)
+        read_only_fields = fields
 
 
+# ------------------------------------------------------------------
+#  Booking
+# ------------------------------------------------------------------
+class BookingSerializer(serializers.ModelSerializer):
+    # Convenience read-only fields so the UI doesn’t need extra calls
+    restaurant_name = serializers.ReadOnlyField(source="restaurant.name")
+    table_size      = serializers.ReadOnlyField(source="table.size")
+
+    class Meta:
+        model  = Booking
+        fields = [
+            "id",
+            "restaurant",
+            "restaurant_name",
+            "table",
+            "table_size",
+            "date",
+            "time",
+            "num_people",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "status",
+            "created_at",
+            "restaurant_name",
+            "table_size",
+        ]
+
+    # ------------------------------------------------------------------
+    #  Field-level and object-level validation
+    # ------------------------------------------------------------------
+    def validate_num_people(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Party size must be at least 1.")
+        return value
+
+    def validate(self, attrs):
+        """Cross-field checks before object is created."""
+        table  = attrs["table"]
+        date   = attrs["date"]
+        time   = attrs["time"]
+        people = attrs["num_people"]
+
+        # 1️⃣  Capacity check
+        if people > table.size:
+            raise serializers.ValidationError(
+                f"Table seats {table.size}, but {people} requested."
+            )
+
+        # 2️⃣  Past-date/time check (optional but recommended)
+        if date < timezone.localdate() or (
+            date == timezone.localdate() and time <= timezone.localtime().time()
+        ):
+            raise serializers.ValidationError("Cannot book in the past.")
+
+        # 3️⃣  Table–Restaurant mismatch safety
+        if attrs.get("restaurant") and table.restaurant_id != attrs["restaurant"].id:
+            raise serializers.ValidationError(
+                "This table does not belong to the specified restaurant."
+            )
+
+        # 4️⃣  Double-booking guard (duplicates within same table/date/time)
+        if Booking.objects.filter(
+            table=table, date=date, time=time, status=Booking.Status.BOOKED
+        ).exists():
+            raise serializers.ValidationError(
+                "That table is already booked at the selected time."
+            )
+
+        return attrs
+
+    # ------------------------------------------------------------------
+    #  Auto-attach the authenticated user & set default status
+    # ------------------------------------------------------------------
+    def create(self, validated_data):
+        validated_data["user"] = self.context["request"].user
+        return super().create(validated_data)
 
 
-# old
 
-# from rest_framework import serializers
-# from django.db.models import Avg, Count
-# from .models import Restaurant, CuisineType, FoodType, RestaurantPhoto
-# from reviews.models import Review
-# from django.conf import settings
-# from accounts.serializers import AccountSerializer
-
-
-# class RestaurantPhotoSerializer(serializers.ModelSerializer):
-#     thumbnail_url = serializers.SerializerMethodField()
-#     high_res_url = serializers.SerializerMethodField()
-#     class Meta:
-#         model = RestaurantPhoto
-#         fields = ['id', 'thumbnail_url', 'uploaded_at','high_res_url']
-    
-#     def get_thumbnail_url(self, obj):
-#         return f"https://{settings.AWS_S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{obj.thumbnail_s3_key}"
-#         # return f"http://localhost:9004/photos/{obj.thumbnail_s3_key}"
-    
-#     def get_high_res_url(self,obj):
-#         return f"https://{settings.AWS_S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{obj.photo_key}"
-
-
-#         # return f"http://localhost:9004/photos/{obj.photo_key}"
-
-# class RestaurantSerializer(serializers.ModelSerializer):
-#     photos = RestaurantPhotoSerializer(many=True, read_only=True)
-#     owner = serializers.HiddenField(
-#         default=serializers.CurrentUserDefault() 
-#     )
-#     cuisine_type = serializers.SlugRelatedField(
-#         many=True, slug_field='name', queryset=CuisineType.objects.all()
-#     )
-#     food_type = serializers.SlugRelatedField(
-#         many=True, slug_field='name', queryset=FoodType.objects.all()
-#     )
-#     review_count = serializers.SerializerMethodField()
-#     average_rating = serializers.SerializerMethodField()
-
-#     class Meta:
-#         model = Restaurant
-#         fields = [
-#             'id', 'name', 'address', 'city', 'state', 'zip_code', 'price_range', 
-#             'rating', 'hours_of_operation', 'website', 'phone_number', 'owner',
-#             'cuisine_type', 'food_type', 'description', 'review_count', 'average_rating','photos'
-#         ]
-        
-#     def get_cuisine_type(self, obj):
-#         return [cuisine.name for cuisine in obj.cuisine_type.all()]
-
-#     def get_food_type(self, obj):
-#         return [food.name for food in obj.food_type.all()]
-        
-#     def get_review_count(self, obj):
-#         return Review.objects.filter(restaurant=obj).count()
-
-#     def get_average_rating(self, obj):
-#         avg_rating = Review.objects.filter(restaurant=obj).aggregate(Avg('rating'))['rating__avg']
-#         return round(avg_rating, 1) if avg_rating else None
-
-
-
-# class RestaurantDetailSerializer(serializers.ModelSerializer):
-#     reviews = serializers.SerializerMethodField()
-#     photos = RestaurantPhotoSerializer(many=True, read_only=True)
-
-#     class Meta:
-#         model = Restaurant
-#         fields = [
-#             "name",
-#             "cuisine_type",
-#             "food_type",
-#             "price_range",
-#             "rating",
-#             "address",
-#             "city",
-#             "state",
-#             "zip_code",
-#             "hours_of_operation",
-#             "website",
-#             "phone_number",
-#             "latitude",
-#             "longitude",
-#             "reviews",
-#             "description",
-#             "photos",
-#         ]
-
-#     def get_reviews(self, obj):
-#         return [
-#             {
-#                 "reviewer": review.user.username,
-#                 "comment": review.review_text,
-#                 "rating": review.rating,
-#             }
-#             for review in obj.reviews.all()
-#         ]
-
-# class RestaurantListingSerializer(serializers.ModelSerializer):
-#     owner = serializers.ReadOnlyField(source='owner.username')  # Display owner's username
-#     photos = RestaurantPhotoSerializer(many=True, read_only=True, source='photos')
-#     class Meta:
-#         model = Restaurant
-#         fields = [
-#             'id', 'name', 'address', 'city', 'state', 'zip_code', 'cuisine_type', 
-#             'food_type', 'price_range', 'hours_of_operation', 'website', 'phone_number', 
-#             'owner', 'photos'
-#         ]
-#         read_only_fields = ['id', 'owner','photos']  # Prevent manual updates to these fields
-
-#     def get_category_display(self, obj):
-#         # Translate the category choice to a human-readable value
-#         return dict(Restaurant.CATEGORY_CHOICES).get(obj.cuisine_type, obj.cuisine_type)
-
-#     def get_food_type_display(self, obj):
-#         # Translate the food type choice to a human-readable value
-#         return dict(Restaurant.FOOD_TYPE_CHOICES).get(obj.food_type, obj.food_type)
-
-#     def get_price_range_display(self, obj):
-#         # Translate the price range choice to a human-readable value
-#         return dict(Restaurant.PRICE_RANGE_CHOICES).get(obj.price_range, obj.price_range)
 
 

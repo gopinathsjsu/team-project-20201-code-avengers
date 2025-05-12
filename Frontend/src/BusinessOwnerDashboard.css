@@ -1,0 +1,190 @@
+
+
+
+/* Container Styles */
+.dashboard-container {
+    background: linear-gradient(135deg, #3998b5, #636e72, #66706b); /* Enhanced gradient with green */
+    border-radius: 15px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3); /* Deeper shadow for depth */
+    padding: 30px;
+    margin: 20px auto;
+    max-width: 1200px;
+    color: #0d0000; /* White text for contrast */
+}
+
+/* Header Styles */
+.dashboard-header h2 {
+    font-weight: 800;
+    font-size: 2.5rem;
+    color: #1a1c1c; /* Soft white for a clean design */
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(234, 228, 228, 0.3); /* Subtle text shadow */
+}
+
+.dashboard-header p {
+    color: #b2bec3; /* Muted text for subtitles */
+    font-size: 1.1rem;
+    margin-bottom: 30px;
+}
+
+/* Actions Section */
+.actions-section {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 25px;
+}
+
+/* Action Card Styles */
+.action-card {
+    background: linear-gradient(145deg, #e5e5ea00, #756262, #c8bab7); /* Tri-color gradient */
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); /* Shadow for depth */
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+    cursor: pointer;
+    min-width: 220px;
+    max-width: 300px;
+    color: #ffffff; /* White text for clarity */
+    position: relative; /* For inner decorative elements */
+    overflow: hidden; /* Prevent overflow of content */
+}
+
+.action-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2), transparent);
+    transform: rotate(45deg);
+    animation: pulse 6s infinite; /* Soft pulsing animation */
+    z-index: 0;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+.action-card h5 {
+    font-weight: 700;
+    margin-top: 15px;
+    font-size: 1.4rem;
+    z-index: 1; /* Ensure text stays above decorative effects */
+    position: relative;
+}
+
+.action-card:hover {
+    transform: translateY(-10px) scale(1.05); /* Lift and scale effect */
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3); /* Stronger shadow on hover */
+}
+
+/* Listing Cards */
+.listing-cards .listing-card {
+    background: linear-gradient(135deg, #bfcccc, #262224, #aba397); /* Enhanced gradient with pink and yellow */
+    border: 1px solid transparent;
+    border-radius: 12px;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+    overflow: hidden;
+    padding: 20px;
+    color: #ffffff; /* White text for readability */
+    position: relative;
+}
+
+.listing-cards .listing-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1), transparent);
+    transform: rotate(-45deg);
+    animation: pulse 6s infinite;
+    z-index: 0;
+}
+
+.listing-card .card-text,
+.listing-card p {
+    color: #ffffff; /* Bright white for clear readability */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7); /* Subtle shadow for contrast */
+}
+
+.listing-cards .listing-card:hover {
+    transform: translateY(-8px) scale(1.03); /* Slightly less lift than action cards */
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3); /* Subtle shadow on hover */
+}
+
+.listing-card .card-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    color: #fdcb6e; /* Bright color for titles */
+    z-index: 1;
+    position: relative;
+}
+
+.listing-card .card-body p strong {
+    color: #ffeaa7; /* Bright yellow for Address and Contact labels */
+    font-weight: bold; /* Keep the bold style */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7); /* Add subtle shadow for readability */
+}
+
+.listing-card .card-body p {
+    color: #ffffff; /* Bright white for the actual text content */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6); /* Subtle shadow for contrast */
+}
+
+.listing-card .card-footer p strong {
+    color: #fdcb6e; /* Bright gold for labels */
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); /* Ensure text is readable */
+}
+
+.listing-card .card-footer p {
+    color: #ffffff; /* White for text */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* Buttons (Optional Enhancements) */
+button {
+    background: linear-gradient(135deg, #e84393, #d63031, #0984e3); /* Vibrant multi-color gradient */
+    color: #ffffff;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 20px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+button:hover {
+    background: linear-gradient(135deg, #a1959a, #7a7270, #b5bdc5); /* Lighter gradient on hover */
+    transform: translateY(-3px); /* Lift effect */
+}
+
+/* Add Animation to Cards */
+@keyframes cardEntrance {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.action-card,
+.listing-card {
+    animation: cardEntrance 0.8s ease-out;
+}
