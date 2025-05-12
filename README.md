@@ -1,6 +1,6 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/nqsiO_r4)
 
-# Team Spartan
+# Team Code Avengers
 
 Piyush Deshmukh, Shivansh, Sriram, Sindhu
 
@@ -9,7 +9,7 @@ Piyush Deshmukh, Shivansh, Sriram, Sindhu
 
 # Component Diagram
 
-![Component Diagram](docs/images/component-diagram.png)
+![Component Diagram](docs/images/Component.drawio.png)
 
 *Figure 1: System Component Diagram showing the interaction between different components of the application*
 
