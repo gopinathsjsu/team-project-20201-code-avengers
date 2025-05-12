@@ -9,6 +9,9 @@ Piyush Deshmukh, Shivansh, Sriram, Sindhu
 
 # Component Diagram
 
+![Component Diagram](docs/images/component-diagram.png)
+
+*Figure 1: System Component Diagram showing the interaction between different components of the application*
 
 # Agile Artifacts
 
