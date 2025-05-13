@@ -19,6 +19,7 @@ function AdminDashboard() {
     const [isLoading, setIsLoading] = useState(false); 
     const [error, setError] = useState(null);
     const [role, setRole] = useState(null); // Role state
+    // State to store loggedin status .
     const [isLoggedIn, setIsLoggedIn] = useState(false); // Login status
     const navigate = useNavigate();
     const API_URL = process.env.REACT_APP_API_URL;
