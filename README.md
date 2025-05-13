@@ -43,12 +43,12 @@ https://docs.google.com/spreadsheets/d/1-sT4emJcwOGDfivHoESIL1WgpJexdmzsun69SFKj
 # Contributions Summary:
 
 
-Sindhu: Worked on team meetings, JIRA, user stories, React frontend, login/register, dashboard, search UI, responsive design and and worked on dev, and team familiarization,Docker/CI-CD, deployment monitoring, issue fixing.
+Sindhu: Worked on team meetings, JIRA, user stories, React frontend, login/register, dashboard, and worked on dev, and team familiarization,Docker/CI-CD, deployment monitoring, issue fixing.
 
 Piyush: Worked on GitHub setup, Django backend, user auth, restaurant models/endpoints, review/booking APIs, admin features, analytics endpoints, API documentation, testing assistance.
 
 Shivansh: Worked on team intro, wireframes, database schema, backend collaboration, API testing, review/admin endpoints, analytics testing, frontend assistance, final testing.
 
-SriRam: Worked on UI/UX research , details page, booking UI, confirmation UI, UI polishing, folder structure,AWS research  AWS/S3 setup, production prep.
+SriRam: Worked on UI/UX research ,search UI, responsive design and details page, booking UI, confirmation UI, UI polishing, folder structure,AWS research  AWS/S3 setup, production prep.
 
 
