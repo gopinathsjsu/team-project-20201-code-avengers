@@ -6,12 +6,20 @@ import Footer from './Footer';
 import Navbar from './Navbar';
 
 function Login() {
+    // State to store the user's email input
     const [email, setEmail] = useState("");
+    // State to store the user's password input
     const [password, setPassword] = useState("");
+    // State to store any error message (e.g., invalid login)
     const [error, setError] = useState("");
+    // State to store success message (e.g., login successful)
     const [success, setSuccess] = useState("");
+    // State to indicate if the login request is in progress (e.g., for showing a loader)
     const [isLoading, setIsLoading] = useState(false);
+    // Hook from React Router to navigate programmatically (e.g., redirect after login)
     const navigate = useNavigate();
+
+
     const API_URL = process.env.REACT_APP_API_URL;
 
     const handleSubmit = async (e) => {

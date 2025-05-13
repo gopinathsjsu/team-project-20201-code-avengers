@@ -22,8 +22,8 @@ Make sure you have the following installed on your local machine:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-repo-url.git
-cd team-project-cmpe-2020-02/Backend
+git clone https://github.com/gopinathsjsu/team-project-20201-code-avengers.git
+cd Restaurant/Backend
 ```
 
 ### 2. Create and Activate a Virtual Environment
@@ -31,15 +31,8 @@ cd team-project-cmpe-2020-02/Backend
 #### On macOS/Linux:
 
 ```bash
-python3 -m venv venv  # Create virtual environment
-source venv/bin/activate  # Activate virtual environment
-```
-
-#### On Windows:
-
-```bash
-python -m venv venv  # Create virtual environment
-.env\Scriptsctivate  # Activate virtual environment
+python3 -m venv venv   
+source venv/bin/activate   
 ```
 
 ### 3. Install Dependencies

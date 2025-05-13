@@ -1,33 +1,54 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/nqsiO_r4)
 
-# Team Spartan
+# Team Code Avengers
 
-Piyush Deshmukh, Shivansh, Sriram, Sindhu
+
+Piyush Deshmukh, Shivansh, Sriram, Sindhu 
 
 # Deployment Diagram
+
 
 
 # Component Diagram
 
 
+![Component Diagram](docs/images/Component.drawio.png)
+
+*Figure 1: System Component Diagram showing the interaction between different components of the application*
+
 # Agile Artifacts
 
 ## XP Core Values
 
-Communication: Open and effective communication was the backbone of our project. We maintained clear channels through daily stand-ups, GitHub issues, and a shared task board, ensuring everyone was aligned. Frequent check-ins helped us avoid silos and kept all team members aware of project progress and blockers. Clear documentation and prompt updates on Slack ensured smooth handoffs between frontend, backend, and cloud teams. By fostering transparent communication, we were able to catch bugs early, prioritize tasks efficiently, and maintain strong team synergy from start to finish.
+Communication
+Throughout the project, our team prioritized open and frequent communication to ensure everyone was aligned and issues were resolved quickly. We held regular stand-up meetings a few times a week to discuss progress, blockers, and next steps. We used Whatsapp for quick questions and updates, which helped us avoid misunderstandings and kept everyone in the loop.
+For example, when integrating the frontend React app with the Django backend, the frontend and backend developers coordinated closely to define the API endpoints and data formats. We used shared API documentation to agree on request/response structures, which minimized integration bugs.
+We also used GitHub for version control, and every pull request required at least one team member to review it. This not only improved code quality but also ensured that everyone was aware of changes happening in the codebase.
 
-Courage: Our team demonstrated courage by embracing challenges head-on and adapting to change throughout the development process. Whether it was refactoring large sections of code, overhauling our search filter logic, or taking on unfamiliar tech stacks for deployment, we made bold decisions to improve the product. For example, midway through development, we identified flaws in the existing database schema. Rather than building on top of a weak foundation, we had the courage to redesign it—even though it meant reworking some of the APIs. This decision ultimately resulted in a more robust and scalable architecture. Team members were encouraged to voice concerns and suggest improvements, even if it meant rethinking initial ideas.
+Feedback : 
+ We actively sought and incorporated feedback at every stage of the project. During development, we set up a staging environment where team members could test new features before they went live. We encouraged each other to try out new UI components or API endpoints and give honest feedback on usability and functionality.
+For instance, after implementing the restaurant review feature, we asked a few non-developer friends to use the app and leave reviews. Their feedback led us to simplify the review submission process and add clearer error messages.
+We also used automated tests and manual QA to catch issues early. Whenever a bug was found, we discussed it as a team, identified the root cause, and quickly pushed a fix. Regular sprint retrospectives allowed us to reflect on what was working and what could be improved, so our process evolved based on real experiences.
+
 
 ## Jira link (Added Grader)
+https://sjsu-team-202project.atlassian.net/jira/software/projects/SCRUM/summary
+
+
 
 ## Weekly Scrum Report
+https://docs.google.com/spreadsheets/d/1-sT4emJcwOGDfivHoESIL1WgpJexdmzsun69SFKjpJs/edit?usp=sharing
+
 
 # Contributions Summary:
 
-Piyush Deshmukh: Worked on the Backend APIs, django models, diagrams, and testing.
 
-Shivansh: Worked on the Backend APIs, PostgreSQL database with AWS RDS, EC2 setup
+Sindhu: Worked on team meetings, JIRA, user stories, React frontend, login/register, dashboard, and worked on dev, and team familiarization,Docker/CI-CD, deployment monitoring, issue fixing.
 
-Sriram: Worked on Front-End Implementation, CSS and Javascript Implementation and Validation
+Piyush: Worked on GitHub setup, Django backend, user auth, restaurant models/endpoints, review/booking APIs, admin features, analytics endpoints, API documentation, testing assistance.
 
-Sindhu: Worked on the backend APIs, photo uploads, s3 integration and AWS deployment.
+Shivansh: Worked on team intro, wireframes, database schema, backend collaboration, API testing, review/admin endpoints, analytics testing, frontend assistance, final testing.
+
+SriRam: Worked on UI/UX research ,search UI, responsive design and details page, booking UI, confirmation UI, UI polishing, folder structure,AWS research  AWS/S3 setup, production prep.
+
+
