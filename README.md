@@ -31,9 +31,10 @@ For instance, after implementing the restaurant review feature, we asked a few n
 We also used automated tests and manual QA to catch issues early. Whenever a bug was found, we discussed it as a team, identified the root cause, and quickly pushed a fix. Regular sprint retrospectives allowed us to reflect on what was working and what could be improved, so our process evolved based on real experiences.
 
 
-
 ## Jira link (Added Grader)
 https://sjsu-team-202project.atlassian.net/jira/software/projects/SCRUM/summary
+
+
 
 ## Weekly Scrum Report
 https://docs.google.com/spreadsheets/d/1-sT4emJcwOGDfivHoESIL1WgpJexdmzsun69SFKjpJs/edit?usp=sharing
@@ -41,12 +42,13 @@ https://docs.google.com/spreadsheets/d/1-sT4emJcwOGDfivHoESIL1WgpJexdmzsun69SFKj
 
 # Contributions Summary:
 
-Sindhu: Worked on team meetings, JIRA, user stories, React frontend, login/register, dashboard, search UI, details page, booking UI, confirmation UI, UI polishing, responsive design.
+
+Sindhu: Worked on team meetings, JIRA, user stories, React frontend, login/register, dashboard, search UI, responsive design and and worked on dev, and team familiarization,Docker/CI-CD, deployment monitoring, issue fixing.
 
 Piyush: Worked on GitHub setup, Django backend, user auth, restaurant models/endpoints, review/booking APIs, admin features, analytics endpoints, API documentation, testing assistance.
 
-Shivansh: Worked on team intro, UI/UX research, wireframes, database schema, backend collaboration, API testing, review/admin endpoints, analytics testing, frontend assistance, final testing.
+Shivansh: Worked on team intro, wireframes, database schema, backend collaboration, API testing, review/admin endpoints, analytics testing, frontend assistance, final testing.
 
-SriRam: Worked on team familiarization, AWS research, folder structure, AWS/S3 setup, Docker/CI-CD, deployment monitoring, issue fixing, production prep.
+SriRam: Worked on UI/UX research , details page, booking UI, confirmation UI, UI polishing, folder structure,AWS research  AWS/S3 setup, production prep.
 
 
