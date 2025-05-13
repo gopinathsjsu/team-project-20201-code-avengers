@@ -4,7 +4,7 @@
 PROJECT_MAIN_DIR_NAME="team-project-20201-code-avengers"
 
 # Copy gunicorn  service file
-sudo cp "/home/ec2-user/$PROJECT_MAIN_DIR_NAME/Backend/restaurant_review/gunicorn/gunicorn.service" "/etc/systemd/system/gunicorn.service"
+sudo cp "/home/ubuntu/$PROJECT_MAIN_DIR_NAME/Backend/restaurant_review/gunicorn/gunicorn.service" "/etc/systemd/system/gunicorn.service"
 
 # Start and enable Gunicorn service
 sudo systemctl start gunicorn.service
