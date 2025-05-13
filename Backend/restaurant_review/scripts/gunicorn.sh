@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 # Replace {YOUR_PROJECT_MAIN_DIR_NAME} with your actual project directory name
-PROJECT_MAIN_DIR_NAME="team-project-cmpe-2020-02-spartans"
+PROJECT_MAIN_DIR_NAME="team-project-20201-code-avengers"
 
 # Copy gunicorn  service file
 sudo cp "/home/ubuntu/$PROJECT_MAIN_DIR_NAME/Backend/restaurant_review/gunicorn/gunicorn.service" "/etc/systemd/system/gunicorn.service"

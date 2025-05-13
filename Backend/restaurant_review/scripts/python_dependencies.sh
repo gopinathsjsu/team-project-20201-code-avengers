@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-PROJECT_MAIN_DIR_NAME="team-project-cmpe-2020-02-spartans/Backend"
+PROJECT_MAIN_DIR_NAME="team-project-20201-code-avengers/Backend"
 
 # Validate variables
 if [ -z "$PROJECT_MAIN_DIR_NAME" ]; then

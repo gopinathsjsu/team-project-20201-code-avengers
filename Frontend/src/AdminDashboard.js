@@ -6,14 +6,20 @@ import { refreshAccessToken } from './auth';
 import Footer from './Footer';
 
 function AdminDashboard() {
+
+    
     const [view, setView] = useState(''); // State to track current view
     const [allListings, setAllListings] = useState([]);
+    // State to store listings that are identified as duplicates
     const [duplicateListings, setDuplicateListings] = useState([]);
+    // State to store restaurants that are pending approval or review
     const [pendingRestaurants, setPendingRestaurants] = useState([]);
+    // State to store analytics data related to reservations (e.g., counts, trends)
     const [reservationAnalytics, setReservationAnalytics] = useState([]); // New state for reservation analytics
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false); 
     const [error, setError] = useState(null);
     const [role, setRole] = useState(null); // Role state
+    // State to store loggedin status .
     const [isLoggedIn, setIsLoggedIn] = useState(false); // Login status
     const navigate = useNavigate();
     const API_URL = process.env.REACT_APP_API_URL;

@@ -5,8 +5,8 @@ After=network.target
 [Service]
 User=ubuntu
 Group=www-data
-WorkingDirectory=/home/ubuntu/team-project-cmpe-2020-02-spartans/Backend/restaurant_review
-ExecStart=/home/sid/sjsu/202/team-project-cmpe-2020-02-spartans/env/bin/gunicorn \
+WorkingDirectory=/home/ubuntu/team-project-20201-code-avengers/Backend/restaurant_review
+ExecStart=/home/ubuntu/team-project-20201-code-avengers/Backend/venv/bin/gunicorn \
           --access-logfile - \
           --workers 3 \
           --bind 0.0.0.0:8000 \
