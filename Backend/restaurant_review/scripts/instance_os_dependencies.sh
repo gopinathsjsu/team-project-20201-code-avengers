@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-sudo apt update
-# Install Python3 pip
-sudo apt install -y python3-pip
+# Update yum packages
+sudo yum update -y
 
-# Install Virtualenv
-sudo apt install -y virtualenv
+# Install Python 3 and pip
+sudo yum install -y python3 python3-pip
+
+# Install virtualenv
+sudo pip3 install virtualenv

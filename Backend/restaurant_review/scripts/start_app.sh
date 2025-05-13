@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-PROJECT_MAIN_DIR_NAME="team-project-cmpe-2020-02-spartans/Backend"
+PROJECT_MAIN_DIR_NAME="team-project-20201-code-avengers/Backend"
 
 # Validate variables
 if [ -z "$PROJECT_MAIN_DIR_NAME" ]; then
@@ -10,14 +10,14 @@ if [ -z "$PROJECT_MAIN_DIR_NAME" ]; then
 fi
 
 # Change ownership to ubuntu user
-sudo chown -R ubuntu:ubuntu "/home/ubuntu/$PROJECT_MAIN_DIR_NAME"
+sudo chown -R ec2-user:ec2-user "/home/ec2-user/$PROJECT_MAIN_DIR_NAME"
 
 # Change directory to the project main directory
-cd "/home/ubuntu/$PROJECT_MAIN_DIR_NAME/"
+cd "/home/ec2-user/$PROJECT_MAIN_DIR_NAME/"
 
 # Activate virtual environment
 echo "Activating virtual environment..."
-source "/home/ubuntu/$PROJECT_MAIN_DIR_NAME/venv/bin/activate"
+source "/home/ec2-user/$PROJECT_MAIN_DIR_NAME/venv/bin/activate"
 
 # Run collectstatic command
 echo "Running collectstatic command..."
