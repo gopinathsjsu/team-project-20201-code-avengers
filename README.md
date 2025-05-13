@@ -2,12 +2,15 @@
 
 # Team Code Avengers
 
-Piyush Deshmukh, Shivansh, Sriram, Sindhu
+
+Piyush Deshmukh, Shivansh, Sriram, Sindhu 
 
 # Deployment Diagram
 
 
+
 # Component Diagram
+
 
 ![Component Diagram](docs/images/Component.drawio.png)
 
