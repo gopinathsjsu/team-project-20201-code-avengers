@@ -17,8 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from restaurants.views import DuplicateListingsView, ReservationAnalyticsMonthView
+from django.http import HttpResponse
+
 
 urlpatterns = [
+    path("", lambda request: HttpResponse("Django server is running!")),
     path('admin/', admin.site.urls),
     path('api/accounts/', include('accounts.urls')),  
     # path("api/",           include("restaurants.urls")),

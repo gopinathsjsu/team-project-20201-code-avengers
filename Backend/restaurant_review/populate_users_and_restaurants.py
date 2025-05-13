@@ -135,7 +135,11 @@ def populate_restaurants_with_owners(restaurants_per_owner=5):
 
 
 # ─── 6) Run populate tasks ─────────────────────────────────────────────
-if __name__ == "__main__":
-    populate_users()
-    populate_restaurants_with_owners(restaurants_per_owner=5)
-    print("Done.")
+# if __name__ == "__main__":
+#     populate_users()
+#     populate_restaurants_with_owners(restaurants_per_owner=5)
+#     print("Done.")
+# Always run both when the file is executed or sourced via exec()
+populate_users()
+populate_restaurants_with_owners(restaurants_per_owner=5)
+print("Done.")
