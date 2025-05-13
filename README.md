@@ -7,6 +7,7 @@ Piyush Deshmukh, Shivansh, Sriram, Sindhu
 
 # Deployment Diagram
 
+![Deployment Diagram](docs/images/Deployment.drawio.png)
 
 
 # Component Diagram
