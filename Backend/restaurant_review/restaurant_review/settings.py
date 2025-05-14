@@ -27,8 +27,8 @@ SECRET_KEY = "django-insecure-m_v4+7i8e%d12nds$07%my5p&y+yg4w_7+gpe^f$d4s2!4obtp
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "ec2-52-53-245-102.us-west-1.compute.amazonaws.com",
-    "52.53.245.102",  # EC2 Public IP
+    "ec2-52-14-96-191.us-east-2.compute.amazonaws.com",
+    "52.14.96.191",  # EC2 Public IP
     "localhost",
     "127.0.0.1",
 ]
@@ -114,6 +114,7 @@ env = environ.Env()
 
 # Path to the .env file
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 DATABASES = {
     "default": {
@@ -123,6 +124,9 @@ DATABASES = {
         "PASSWORD": env("DB_PASSWORD"),
         "HOST": env("DB_HOST"),
         "PORT": env("DB_PORT"),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
 }
 
@@ -161,7 +165,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -198,3 +202,10 @@ EMAIL_HOST_USER   = os.getenv("SMTP_USER")    # your real mailbox/login
 EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASS")  # app‑password / API key
 
 DEFAULT_FROM_EMAIL = "noreply@restaurantapp.com"
+
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://ec2-52-14-96-191.us-east-2.compute.amazonaws.com",
+    "http://52.14.96.191",
+]
+
