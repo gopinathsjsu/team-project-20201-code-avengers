@@ -46,7 +46,8 @@ https://docs.google.com/spreadsheets/d/1-sT4emJcwOGDfivHoESIL1WgpJexdmzsun69SFKj
 
 Sindhu: Worked on team meetings, JIRA, user stories, React frontend, login/register, dashboard, and worked on dev, and team familiarization,Docker/CI-CD, deployment monitoring, issue fixing.
 
-Piyush: Worked on GitHub setup, Django backend, user auth, restaurant models/endpoints, review/booking APIs, admin features, analytics endpoints, API documentation, testing assistance.
+Piyush: Worked on GitHub setup, Django backend, user auth, restaurant models/endpoints, review/booking APIs, Booking cancellation, Email verification and Restaurant manager endpoints - entire updation, Google maps integration, Table size, time slots, Handled row-level locking to prevent overbooking, API documentation and UI for these corresponding services as well as testing assistance.Complete cloud deployment which included:
+from Infrastructure setup (EC2, DB, S3), Frontend + backend config and builds, Static file routing (Nginx), File upload integration (S3 or MinIO), Domain + HTTPS. Investigated favicon.ico, DRF CSS/JS load issues, CSRF, authorization, and media file uploads. Solved SSH, port blocking, and cross-origin policy problems. also Resolved Git merge conflicts, Ensured .env consistency and helped sync backend/frontend teams, Managed package.json, dependency installations, and build consistency.
 
 Shivansh: Worked on team intro, wireframes, database schema, backend collaboration, API testing, review/admin endpoints, analytics testing, frontend assistance, final testing.
 
